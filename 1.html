@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Publications Section Preview</title>
+<style>
+  :root{
+    --bg:#0b0e16;
+    --bg-soft:#11152198;
+    --card:#141826;
+    --card-border:#23283b;
+    --text:#e9ebf3;
+    --text-dim:#9aa1b8;
+    --accent-a:#7c5cff;
+    --accent-b:#3fc7ff;
+    --accent-gradient:linear-gradient(135deg,var(--accent-a),var(--accent-b));
+    --success:#33d69f;
+    --radius:18px;
+    font-family:'Inter','Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:radial-gradient(circle at 20% 0%, #1a1f33 0%, var(--bg) 55%);
+    color:var(--text);
+    padding:80px 24px;
+  }
+  .pub-section{
+    max-width:980px;
+    margin:0 auto;
+  }
+  .eyebrow{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--accent-b);
+    margin-bottom:14px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:28px;
+    height:2px;
+    background:var(--accent-gradient);
+    border-radius:2px;
+  }
+  .section-heading{
+    font-size:clamp(28px,4vw,38px);
+    font-weight:700;
+    margin:0 0 10px;
+    letter-spacing:-0.01em;
+  }
+  .section-sub{
+    color:var(--text-dim);
+    font-size:16px;
+    margin:0 0 44px;
+    max-width:560px;
+  }
+
+  .paper-card{
+    position:relative;
+    background:linear-gradient(180deg,var(--card),#10131f);
+    border:1px solid var(--card-border);
+    border-radius:var(--radius);
+    padding:36px 38px;
+    overflow:hidden;
+    box-shadow:0 24px 60px -30px rgba(0,0,0,.7);
+  }
+  .paper-card::before{
+    content:"";
+    position:absolute;
+    top:-60%;
+    right:-20%;
+    width:420px;
+    height:420px;
+    background:var(--accent-gradient);
+    opacity:.08;
+    filter:blur(60px);
+    pointer-events:none;
+  }
+
+  .paper-top{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:24px;
+    flex-wrap:wrap;
+    margin-bottom:22px;
+  }
+  .paper-status{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    background:rgba(51,214,159,.12);
+    border:1px solid rgba(51,214,159,.35);
+    color:var(--success);
+    font-size:12.5px;
+    font-weight:600;
+    letter-spacing:.04em;
+    padding:6px 14px;
+    border-radius:999px;
+  }
+  .paper-status .dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--success);
+    box-shadow:0 0 0 3px rgba(51,214,159,.18);
+  }
+  .article-type{
+    font-size:12.5px;
+    font-weight:600;
+    letter-spacing:.04em;
+    color:var(--text-dim);
+    border:1px solid var(--card-border);
+    padding:6px 14px;
+    border-radius:999px;
+  }
+
+  .paper-title{
+    font-size:clamp(20px,2.6vw,25px);
+    font-weight:700;
+    line-height:1.35;
+    margin:0 0 10px;
+    color:#fff;
+  }
+  .paper-subject{
+    display:inline-block;
+    font-size:13px;
+    color:var(--accent-b);
+    background:rgba(63,199,255,.08);
+    border:1px solid rgba(63,199,255,.25);
+    padding:5px 12px;
+    border-radius:8px;
+    margin-bottom:28px;
+  }
+
+  .paper-abstract{
+    font-size:14.5px;
+    line-height:1.65;
+    color:var(--text-dim);
+    margin:0 0 24px;
+  }
+
+  .stats-row{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:14px;
+    margin-bottom:28px;
+  }
+  .stat-box{
+    background:var(--card);
+    border:1px solid var(--card-border);
+    border-radius:14px;
+    padding:18px 16px;
+    text-align:center;
+  }
+  .stat-value{
+    font-size:22px;
+    font-weight:800;
+    color:#fff;
+    background:var(--accent-gradient);
+    -webkit-background-clip:text;
+    background-clip:text;
+    -webkit-text-fill-color:transparent;
+    margin-bottom:4px;
+    line-height:1.2;
+  }
+  .stat-label{
+    font-size:12px;
+    color:var(--text-dim);
+    letter-spacing:.01em;
+  }
+
+  .keyword-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:28px;
+  }
+  .keyword-chip{
+    font-size:12.5px;
+    color:var(--text-dim);
+    background:rgba(255,255,255,.03);
+    border:1px solid var(--card-border);
+    padding:6px 12px;
+    border-radius:8px;
+  }
+
+  .meta-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:1px;
+    background:var(--card-border);
+    border:1px solid var(--card-border);
+    border-radius:14px;
+    overflow:hidden;
+    margin-bottom:28px;
+  }
+  .meta-cell{
+    background:var(--card);
+    padding:18px 22px;
+  }
+  .meta-label{
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--text-dim);
+    margin-bottom:6px;
+  }
+  .meta-value{
+    font-size:15px;
+    font-weight:600;
+    color:var(--text);
+    word-break:break-word;
+  }
+  .meta-value a{
+    color:var(--accent-b);
+    text-decoration:none;
+  }
+  .meta-value a:hover{ text-decoration:underline; }
+
+  .timeline{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:18px 22px;
+    background:var(--card);
+    border:1px solid var(--card-border);
+    border-radius:14px;
+    margin-bottom:30px;
+  }
+  .timeline-point{ flex:1; min-width:0; }
+  .timeline-point .meta-label{ margin-bottom:4px; }
+  .timeline-point .meta-value{ font-size:14px; font-weight:600; }
+  .timeline-track{
+    flex:0 0 auto;
+    width:64px;
+    height:2px;
+    background:var(--accent-gradient);
+    border-radius:2px;
+    position:relative;
+  }
+  .timeline-track::after{
+    content:"";
+    position:absolute;
+    right:-4px;top:-3px;
+    width:8px;height:8px;
+    border-radius:50%;
+    background:var(--accent-b);
+  }
+
+  .people-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:14px;
+    margin-bottom:30px;
+  }
+  .person-role{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.1em;
+    color:var(--text-dim);
+    margin-bottom:10px;
+  }
+  .supervisor{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    padding:18px 20px;
+    background:var(--card);
+    border:1px solid var(--card-border);
+    border-radius:14px;
+    margin-bottom:0;
+  }
+  .supervisor-body{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  .supervisor-avatar{
+    flex:0 0 auto;
+    width:42px;
+    height:42px;
+    border-radius:50%;
+    background:var(--accent-gradient);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:700;
+    font-size:14.5px;
+    color:#0b0e16;
+  }
+  .supervisor-info{ min-width:0; flex:1; }
+  .supervisor-name{
+    font-size:15px;
+    font-weight:700;
+    color:var(--text);
+    margin-bottom:2px;
+  }
+  .supervisor-qual{
+    font-size:12.5px;
+    color:var(--accent-b);
+    letter-spacing:.02em;
+    margin-bottom:4px;
+  }
+  .supervisor-meta{
+    font-size:13px;
+    color:var(--text-dim);
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+  .supervisor-meta a{
+    color:var(--text-dim);
+    text-decoration:none;
+  }
+  .supervisor-meta a:hover{ color:var(--accent-b); }
+  .supervisor-meta .sep{ opacity:.4; }
+
+  .paper-actions{
+    display:flex;
+    flex-wrap:wrap;
+    gap:14px;
+    align-items:center;
+  }
+  .btn-primary{
+    display:inline-flex;
+    align-items:center;
+    gap:9px;
+    background:var(--accent-gradient);
+    color:#0b0e16;
+    font-weight:700;
+    font-size:14.5px;
+    padding:12px 22px;
+    border-radius:10px;
+    text-decoration:none;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-primary:hover{
+    transform:translateY(-2px);
+    box-shadow:0 12px 24px -10px rgba(124,92,255,.55);
+  }
+  .btn-ghost{
+    display:inline-flex;
+    align-items:center;
+    gap:9px;
+    color:var(--text);
+    font-weight:600;
+    font-size:14.5px;
+    padding:12px 20px;
+    border-radius:10px;
+    border:1px solid var(--card-border);
+    text-decoration:none;
+    transition:border-color .15s ease, color .15s ease;
+  }
+  .btn-ghost:hover{
+    border-color:var(--accent-b);
+    color:var(--accent-b);
+  }
+  .id-chip{
+    font-size:13px;
+    color:var(--text-dim);
+    margin-left:auto;
+  }
+  .id-chip b{ color:var(--text); font-weight:600; }
+
+  @media (max-width:640px){
+    .meta-grid{ grid-template-columns:1fr; }
+    .paper-card{ padding:26px 22px; }
+    .timeline{ flex-wrap:wrap; }
+    .timeline-track{ display:none; }
+    .id-chip{ margin-left:0; width:100%; }
+    .people-grid{ grid-template-columns:1fr; }
+    .stats-row{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<section class="pub-section" id="publications">
+  <div class="eyebrow">Research</div>
+  <h2 class="section-heading">Publications</h2>
+  <p class="section-sub">Peer-reviewed and preprint research contributions in AI &amp; Machine Learning.</p>
+
+  <div class="paper-card">
+    <div class="paper-top">
+      <span class="paper-status"><span class="dot"></span>Published</span>
+      <span class="article-type">Article</span>
+    </div>
+
+    <h3 class="paper-title">Design of a Neural Collaborative Filtering&ndash;Based Movie Recommendation System: From-Scratch Implementation, PyTorch Benchmarking, and Production Architecture</h3>
+    <span class="paper-subject">Computer Science &amp; Mathematics — Artificial Intelligence and Machine Learning</span>
+
+    <p class="paper-abstract">
+      A complete neural collaborative filtering system for movie recommendations, built two ways: a from-scratch NumPy implementation with hand-derived backpropagation, and an optimized PyTorch version accelerated on Apple Silicon (MPS). Benchmarked on MovieLens, then deployed as a production microservices stack with a FastAPI gateway, a dedicated inference server, PostgreSQL, and a Netflix-style frontend with a hybrid cold-start module.
+    </p>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-value">3.39×</div>
+        <div class="stat-label">Faster training (PyTorch vs. NumPy)</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">0.615</div>
+        <div class="stat-label">Peak HR@10 recommendation quality</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">0.2257</div>
+        <div class="stat-label">Final BCE loss (Scratch NCF)</div>
+      </div>
+    </div>
+
+    <div class="keyword-row">
+      <span class="keyword-chip">Neural Collaborative Filtering</span>
+      <span class="keyword-chip">Recommender Systems</span>
+      <span class="keyword-chip">Matrix Factorization</span>
+      <span class="keyword-chip">Implicit Feedback</span>
+      <span class="keyword-chip">Deep Learning</span>
+      <span class="keyword-chip">Microservices Architecture</span>
+      <span class="keyword-chip">MovieLens</span>
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-cell">
+        <div class="meta-label">Repository / Platform</div>
+        <div class="meta-value">Preprints.org</div>
+      </div>
+      <div class="meta-cell">
+        <div class="meta-label">Preprint ID</div>
+        <div class="meta-value">212150</div>
+      </div>
+      <div class="meta-cell" style="grid-column:1 / -1;">
+        <div class="meta-label">Digital Object Identifier (DOI)</div>
+        <div class="meta-value">
+          <a href="https://doi.org/10.20944/preprints202605.0449.v1" target="_blank" rel="noopener">
+            doi.org/10.20944/preprints202605.0449.v1
+          </a>
+        </div>
+      </div>
+      <div class="meta-cell" style="grid-column:1 / -1;">
+        <div class="meta-label">Article Type</div>
+        <div class="meta-value">Article</div>
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-point">
+        <div class="meta-label">Submitted</div>
+        <div class="meta-value">06 May 2026</div>
+      </div>
+      <div class="timeline-track"></div>
+      <div class="timeline-point">
+        <div class="meta-label">Published</div>
+        <div class="meta-value">08 May 2026</div>
+      </div>
+    </div>
+
+    <div class="people-grid">
+      <div class="supervisor">
+        <div class="person-role">Author</div>
+        <div class="supervisor-body">
+          <div class="supervisor-avatar">RK</div>
+          <div class="supervisor-info">
+            <div class="supervisor-name">Rahul K P</div>
+            <div class="supervisor-qual">MSc Computer Science, Final Year</div>
+            <div class="supervisor-meta">
+              <span>University of Calicut</span>
+              <span class="sep">•</span>
+              <a href="mailto:rahul.kp.msc.cs@gmail.com">rahul.kp.msc.cs@gmail.com</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="supervisor">
+        <div class="person-role">Supervisor</div>
+        <div class="supervisor-body">
+          <div class="supervisor-avatar">SK</div>
+          <div class="supervisor-info">
+            <div class="supervisor-name">Dr. Seema S.</div>
+            <div class="supervisor-qual">MCA · MBA · MPhil · PhD</div>
+            <div class="supervisor-meta">
+              <span>University of Calicut</span>
+              <span class="sep">•</span>
+              <a href="mailto:seema.karuvarath@gmail.com">seema.karuvarath@gmail.com</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="paper-actions">
+      <a class="btn-primary" href="https://doi.org/10.20944/preprints202605.0449.v1" target="_blank" rel="noopener">
+        View Publication ↗
+      </a>
+      <a class="btn-ghost" href="https://doi.org/10.20944/preprints202605.0449.v1" target="_blank" rel="noopener">
+        Copy DOI Link
+      </a>
+      <span class="id-chip">Preprint <b>#212150</b></span>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>
