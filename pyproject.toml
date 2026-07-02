@@ -1,0 +1,99 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# ---------------------------------------------------------------------------
+# Project metadata
+# ---------------------------------------------------------------------------
+[project]
+name = "phishguard"
+version = "0.1.0"
+description = "ML-powered phishing URL detection — Flask API + CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+
+dependencies = [
+    # Web framework
+    "flask>=3.0.0",
+    "gunicorn>=21.2.0",
+    # ML
+    "scikit-learn>=1.4.0",
+    "pandas>=2.0.0",
+    "numpy>=1.26.0",
+    # Safer model serialisation (replaces bare pickle)
+    "joblib>=1.3.0",
+    # Structured logging
+    "structlog>=24.0.0",
+    # Prometheus metrics
+    "prometheus-client>=0.20.0",
+    # Data collection
+    "requests>=2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    # Linting / formatting (used in CI)
+    "ruff>=0.4.0",
+    "black>=24.0.0",
+]
+
+# ---------------------------------------------------------------------------
+# Package discovery
+# src-layout: pip install -e . makes `phishguard` importable everywhere,
+# eliminating every sys.path.insert() hack in the codebase.
+# ---------------------------------------------------------------------------
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# ---------------------------------------------------------------------------
+# Ruff (linter — replaces flake8 + isort + pyupgrade in one tool)
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = [
+    "E501",  # line too long — black handles formatting
+]
+
+# ---------------------------------------------------------------------------
+# Black (formatter)
+# ---------------------------------------------------------------------------
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short -q"
+markers = [
+    "integration: tests that use real file I/O or trained models (no network)",
+    "slow: tests that take more than 5 seconds",
+]
+
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+[tool.coverage.run]
+source = ["src/phishguard", "app"]
+omit = [
+    "tests/*",
+    "scripts/*",
+    # Data pipeline and trainer require live network / large disk files.
+    # Covered by integration tests (Phase 4), not unit tests.
+    "src/phishguard/data/downloader.py",
+    "src/phishguard/data/builder.py",
+    "src/phishguard/models/trainer.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 95

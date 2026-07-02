@@ -1,0 +1,70 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment files
+.env
+
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build and packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Model artifacts and data outputs
+models/*.joblib
+models/*.pkl
+models/*.bin
+models/*.pt
+models/*.onnx
+*.joblib
+*.pkl
+*.bin
+*.pt
+*.onnx
+
+# Generated data (large / regenerable)
+data/processed/*
+!data/processed/.gitkeep
+data/interim/
+data/external/
+
+# Trained models (generated artefacts — not source)
+models/*
+!models/.gitkeep
+*.pkl
+*.joblib
+*.bin
+*.pt
+*.onnx
+
+# Logs and local runtime files
+*.log
+*.sqlite3
+*.db
+
+# OS/editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Docker / local compose overrides
+docker/*.local
