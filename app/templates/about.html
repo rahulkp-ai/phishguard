@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>About — PhishGuard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#080c10; --surface:#0d1117; --border:#1e2837;
+      --accent:#00e5ff; --danger:#ff3b5c; --success:#00e676;
+      --text:#c9d1d9; --muted:#4a5568;
+      --mono:'Share Tech Mono',monospace; --sans:'DM Sans',sans-serif;
+    }
+    body { background:var(--bg); color:var(--text); font-family:var(--sans); min-height:100vh; }
+    body::before {
+      content:''; position:fixed; inset:0;
+      background-image: linear-gradient(rgba(0,229,255,.03) 1px,transparent 1px), linear-gradient(90deg,rgba(0,229,255,.03) 1px,transparent 1px);
+      background-size:40px 40px; pointer-events:none; z-index:0;
+    }
+    nav {
+      position:sticky; top:0; z-index:100;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:0 2rem; height:60px;
+      background:rgba(8,12,16,.85); backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--border);
+    }
+    .nav-logo { font-family:var(--mono); font-size:1.1rem; color:var(--accent); letter-spacing:.1em; }
+    .nav-logo span { color:var(--danger); }
+    .nav-links { display:flex; gap:2rem; }
+    .nav-links a { color:var(--muted); text-decoration:none; font-size:.85rem; letter-spacing:.05em; transition:color .2s; }
+    .nav-links a:hover { color:var(--accent); }
+
+    .content { position:relative; z-index:1; max-width:820px; margin:0 auto; padding:60px 2rem; }
+    h2 { font-size:1.8rem; color:#fff; margin-bottom:.5rem; }
+    .tag { font-family:var(--mono); font-size:.7rem; color:var(--accent); letter-spacing:.2em; margin-bottom:2rem; display:block; }
+    p { color:var(--muted); line-height:1.8; margin-bottom:1rem; }
+
+    .section { margin-bottom:3rem; }
+    .section-title { font-family:var(--mono); font-size:.75rem; letter-spacing:.2em; color:var(--accent); margin-bottom:1.25rem; padding-bottom:.5rem; border-bottom:1px solid var(--border); }
+
+    .feature-list { list-style:none; display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+    .feature-list li {
+      background:var(--surface); border:1px solid var(--border); border-radius:6px;
+      padding:.6rem 1rem; font-size:.83rem; color:var(--text);
+      display:flex; align-items:center; gap:.6rem;
+    }
+    .feature-list li::before { content:'◆'; color:var(--accent); font-size:.6rem; }
+
+    .model-table { width:100%; border-collapse:collapse; font-size:.85rem; }
+    .model-table th { text-align:left; padding:.6rem 1rem; font-family:var(--mono); font-size:.72rem; letter-spacing:.1em; color:var(--muted); border-bottom:1px solid var(--border); }
+    .model-table td { padding:.6rem 1rem; border-bottom:1px solid rgba(30,40,55,.5); }
+    .model-table tr:hover td { background:var(--surface); }
+
+    .api-block { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:1.25rem; }
+    .api-block code { font-family:var(--mono); font-size:.8rem; color:var(--accent); }
+    .endpoint { display:flex; align-items:center; gap:.75rem; margin-bottom:.75rem; }
+    .method { font-family:var(--mono); font-size:.7rem; padding:.2rem .5rem; border-radius:3px; font-weight:700; }
+    .method.post { background:rgba(0,230,118,.15); color:var(--success); }
+    .method.get  { background:rgba(0,229,255,.1); color:var(--accent); }
+    footer { position:relative; z-index:1; text-align:center; padding:2rem; font-size:.78rem; color:var(--muted); border-top:1px solid var(--border); font-family:var(--mono); }
+    @media(max-width:600px){ .feature-list { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">PHISH<span>GUARD</span></div>
+  <div class="nav-links">
+    <a href="/">Detector</a>
+    <a href="/about">About</a>
+    <a href="/api/health" target="_blank">API</a>
+  </div>
+</nav>
+
+<div class="content">
+  <div class="section">
+    <h2>About PhishGuard</h2>
+    <span class="tag">ML-POWERED PHISHING DETECTION</span>
+    <p>PhishGuard uses a Random Forest classifier trained on 100,000+ URLs to detect phishing attacks by analysing 30 structural URL features — no network requests, no DNS lookups, just instant lexical analysis.</p>
+    <p>Built as a portfolio project demonstrating end-to-end ML: data collection, feature engineering, model training, REST API, and a production-ready web interface.</p>
+  </div>
+
+  <div class="section">
+    <div class="section-title">30 EXTRACTED FEATURES</div>
+    <ul class="feature-list">
+      <li>IP address in URL</li>
+      <li>URL length score</li>
+      <li>URL shortener present</li>
+      <li>@ symbol in URL</li>
+      <li>Double-slash redirect</li>
+      <li>Hyphen in domain</li>
+      <li>Subdomain depth</li>
+      <li>HTTPS in domain name</li>
+      <li>Digit ratio</li>
+      <li>Special char count</li>
+      <li>Slash depth</li>
+      <li>Dot count</li>
+      <li>Suspicious keywords</li>
+      <li>Domain name length</li>
+      <li>.exe file extension</li>
+      <li>Hyphen count</li>
+      <li>Encoded characters</li>
+      <li>Path depth</li>
+      <li>Query string length</li>
+      <li>Domain entropy</li>
+      <li>Suspicious TLD</li>
+      <li>Brand in subdomain</li>
+      <li>Non-standard port</li>
+      <li>Digit in domain</li>
+      <li>URL entropy</li>
+      <li>Repeated characters</li>
+      <li>Executable extension</li>
+      <li>Subdomain count</li>
+      <li>Hex/octal IP obfuscation</li>
+      <li>@ symbol (duplicate)</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <div class="section-title">MODEL DETAILS</div>
+    <table class="model-table">
+      <tr><th>Parameter</th><th>Value</th></tr>
+      <tr><td>Algorithm</td><td>Random Forest Classifier</td></tr>
+      <tr><td>Estimators</td><td>300 trees</td></tr>
+      <tr><td>Max Depth</td><td>20</td></tr>
+      <tr><td>Class Weighting</td><td>Balanced (anti-bias)</td></tr>
+      <tr><td>Training Split</td><td>80 / 20</td></tr>
+      <tr><td>Data Sources</td><td>OpenPhish, PhishTank, URLhaus, Phishing.Database, Majestic Million, Tranco</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">REST API</div>
+    <div class="api-block">
+      <div class="endpoint">
+        <span class="method post">POST</span>
+        <code>/api/predict</code>
+        <span style="color:var(--muted);font-size:.8rem">— Single URL prediction</span>
+      </div>
+      <div class="endpoint">
+        <span class="method post">POST</span>
+        <code>/api/batch</code>
+        <span style="color:var(--muted);font-size:.8rem">— Batch up to 50 URLs</span>
+      </div>
+      <div class="endpoint">
+        <span class="method get">GET</span>
+        <code>/api/health</code>
+        <span style="color:var(--muted);font-size:.8rem">— Model health check</span>
+      </div>
+    </div>
+  </div>
+</div>
+<footer>PhishGuard &mdash; Rahul KP Kurup &nbsp;|&nbsp; ML Portfolio Project</footer>
+</body>
+</html>
