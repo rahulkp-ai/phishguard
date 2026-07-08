@@ -1,0 +1,268 @@
+# =============================================================================
+# PhishGuard — Continuous Integration
+# =============================================================================
+#
+# Jobs (in order of execution)
+# ─────────────────────────────
+#   lint          ruff + black --check  (fails fast, ~10s)
+#   test-fast     unit tests only, --fast flag, no coverage  (~30s)
+#   test-full     full suite including integration + coverage gate  (~60s)
+#   docker-check  verify the Dockerfile builds without error  (~3 min)
+#
+# Design decisions
+# ─────────────────
+# - lint and test-fast run in parallel — fastest possible feedback.
+# - test-full depends on test-fast so we don't waste a runner slot if
+#   unit tests are already failing.
+# - docker-check only runs on push to main/develop (not PRs from forks)
+#   to avoid burning free minutes on external contributor drafts.
+# - Coverage results are uploaded to Codecov AND posted as a PR comment
+#   via the coverage artifact, so reviewers see coverage delta inline.
+# - Python version matrix: 3.10 and 3.12. We support 3.10 (minimum per
+#   pyproject.toml) and test on 3.12 (what the Docker image uses).
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".github/ISSUE_TEMPLATE/**"
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+
+# Cancel in-progress runs for the same branch on new push.
+# Prevents stale CI jobs consuming runner minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_DEFAULT: "3.12"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1 — Lint & Format
+  # Runs standalone so it fails fast without waiting for tests.
+  # ---------------------------------------------------------------------------
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_DEFAULT }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_DEFAULT }}
+          cache: pip
+
+      - name: Install linting tools
+        run: pip install ruff black
+
+      - name: Ruff — lint
+        run: ruff check src/ app/ tests/ scripts/
+
+      - name: Black — format check
+        run: black --check src/ app/ tests/ scripts/
+
+  # ---------------------------------------------------------------------------
+  # Job 2 — Fast unit tests (no integration, no coverage)
+  # Runs in parallel with lint for tight feedback loop.
+  # Matrix: Python 3.10 and 3.12 to catch compatibility issues early.
+  # ---------------------------------------------------------------------------
+  test-fast:
+    name: Unit Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: true       # stop the matrix immediately if one version fails
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install package + dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run fast unit tests
+        run: pytest tests/ --fast -v --tb=short
+        env:
+          SECRET_KEY: ci-testing-secret
+
+  # ---------------------------------------------------------------------------
+  # Job 3 — Full test suite with coverage gate
+  # Depends on test-fast passing — don't burn minutes if units are broken.
+  # Only runs on the default Python version to avoid double coverage reports.
+  # ---------------------------------------------------------------------------
+  test-full:
+    name: Full Tests + Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: test-fast      # only run if unit tests pass on all matrix versions
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_DEFAULT }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_DEFAULT }}
+          cache: pip
+
+      - name: Install package + dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run full test suite with coverage
+        run: |
+          pytest tests/ \
+            --cov \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            -v
+        env:
+          SECRET_KEY: ci-testing-secret
+
+      # Upload XML report for Codecov and PR annotations
+      - name: Upload coverage report artifact
+        uses: actions/upload-artifact@v4
+        if: always()      # upload even if the coverage gate fails
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            htmlcov/
+          retention-days: 14
+
+      # Codecov integration — shows coverage delta on PRs
+      # Requires CODECOV_TOKEN secret (set in repo Settings → Secrets)
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false   # don't fail CI if Codecov is down
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  # ---------------------------------------------------------------------------
+  # Job 4 — Docker build verification
+  # Verifies the Dockerfile builds successfully without pushing the image.
+  # Only runs on push to main/develop (not on PRs from forks — they lack
+  # the GITHUB_TOKEN write permission needed for GHCR).
+  # ---------------------------------------------------------------------------
+  docker-check:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [lint, test-fast]
+    # Only run on push, not on pull_request from forks
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # BuildKit cache speeds up repeated builds in CI significantly
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false       # verify only — docker-publish.yml handles push
+          tags: phishguard:ci-check
+          # Export to Docker daemon so we can run tests against it
+          load: true
+          cache-from: type=gha        # GitHub Actions cache layer
+          cache-to: type=gha,mode=max
+
+      - name: Verify container starts and health check passes
+        run: |
+          docker run -d \
+            --name phishguard_ci \
+            -p 5000:5000 \
+            -e SECRET_KEY=ci-testing-secret \
+            phishguard:ci-check
+
+          # Wait up to 30s for the container to be ready
+          echo "Waiting for container to become healthy..."
+          for i in $(seq 1 12); do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' phishguard_ci 2>/dev/null || echo "starting")
+            echo "  Attempt $i/12 — status: $STATUS"
+            if [ "$STATUS" = "healthy" ]; then
+              echo "Container is healthy."
+              break
+            fi
+            # Also check if the endpoint responds even before health check kicks in
+            if curl --fail --silent http://localhost:5000/api/health > /dev/null 2>&1; then
+              echo "API endpoint responding."
+              break
+            fi
+            sleep 3
+          done
+
+          # Final assertion
+          curl --fail --silent http://localhost:5000/api/health | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          print('Health response:', data)
+          assert data['status'] in ('ok', 'degraded'), f'Unexpected status: {data}'
+          print('Health check passed.')
+          "
+
+      - name: Print container logs (always, for debugging)
+        if: always()
+        run: docker logs phishguard_ci 2>&1 || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker stop phishguard_ci 2>/dev/null || true
+          docker rm phishguard_ci 2>/dev/null || true
+
+  # ---------------------------------------------------------------------------
+  # Summary job — single required status check for branch protection rules
+  # ---------------------------------------------------------------------------
+  # Configure branch protection to require "ci-success" instead of requiring
+  # every individual job.  This way adding new jobs doesn't break branch
+  # protection settings.
+  ci-success:
+    name: CI Passed
+    runs-on: ubuntu-latest
+    needs: [lint, test-fast, test-full]
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [[ "${{ needs.lint.result }}" != "success" ]]; then
+            echo "lint failed" && exit 1
+          fi
+          if [[ "${{ needs.test-fast.result }}" != "success" ]]; then
+            echo "test-fast failed" && exit 1
+          fi
+          if [[ "${{ needs.test-full.result }}" != "success" ]]; then
+            echo "test-full failed" && exit 1
+          fi
+          echo "All required CI jobs passed."
