@@ -1,0 +1,38 @@
+# =============================================================================
+# PhishGuard — Test Compose file
+# =============================================================================
+#
+# Runs the full pytest suite inside the production image.
+# Used by GitHub Actions CI (Phase 5) to ensure the image that will be
+# deployed actually passes all tests.
+#
+# Usage
+# -----
+#   docker compose -f docker/docker-compose.test.yml run --rm test
+#
+# Exit code is forwarded from pytest, so CI will fail if any test fails.
+# =============================================================================
+
+services:
+  test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      # Use the builder stage — it has pip and dev dependencies available
+      target: builder
+    # Override CMD: run pytest inside the builder stage
+    command: >
+      sh -c "
+        pip install --prefix=/install '.[dev]' &&
+        PYTHONPATH=/build/src pytest tests/ --tb=short -q
+      "
+    environment:
+      - SECRET_KEY=ci-testing-secret
+    # Mount tests and the full source so pytest can find everything
+    volumes:
+      - ../tests:/build/tests
+      - ../app:/build/app
+      - ../run.py:/build/run.py
+    working_dir: /build
+    # No restart — this is a one-shot test runner
+    restart: "no"

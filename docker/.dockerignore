@@ -1,0 +1,73 @@
+# =============================================================================
+# .dockerignore — files excluded from the Docker build context
+# =============================================================================
+#
+# A lean build context means:
+#   1. Faster `docker build` (less data sent to the daemon).
+#   2. No accidental leakage of secrets, trained models, or local data.
+#   3. Reproducible images that don't depend on local state.
+#
+# Rule of thumb: exclude everything that is either:
+#   - Generated at runtime (models, processed data, logs)
+#   - Only needed for development (tests, notebooks, dev tools)
+#   - Secrets or environment files
+# =============================================================================
+
+# Git metadata
+.git/
+.gitignore
+.github/
+
+# Python cache / build artifacts
+__pycache__/
+*.py[cod]
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment / secrets — NEVER bake into the image
+.env
+.env.*
+!.env.example
+
+# Generated data — large, not needed in the image
+data/processed/
+data/interim/
+
+# Trained models — injected at runtime via volume mount, not baked in
+# (avoids shipping large binary blobs and forces explicit model versioning)
+models/
+*.pkl
+*.joblib
+
+# Tests — not needed in the production image
+tests/
+
+# Development tooling
+notebooks/
+docs/
+*.md
+!README.md
+
+# IDE / OS noise
+.vscode/
+.idea/
+.DS_Store
+__MACOSX/
+*.swp
+*.swo
+
+# Test / coverage artifacts
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Docker files themselves (avoids context including docker/ in docker/)
+docker/

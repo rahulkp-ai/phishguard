@@ -1,0 +1,122 @@
+# =============================================================================
+# PhishGuard — Docker Compose
+# =============================================================================
+#
+# Services
+# --------
+#   dev      Flask dev server with hot-reload (source mounted as volume).
+#   prod     Gunicorn production server using the built image.
+#   train    One-shot training pipeline (downloads data, trains model).
+#
+# Usage
+# -----
+#   # Development — live reload on source changes
+#   docker compose up dev
+#
+#   # Production — pre-built image, gunicorn
+#   docker compose up prod
+#
+#   # Train the model (creates models/phishing_model.joblib on the host)
+#   docker compose run --rm train
+#
+#   # Rebuild the image after dependency changes
+#   docker compose build prod
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # dev — Flask development server with source volume mounted
+  # ---------------------------------------------------------------------------
+  dev:
+    build:
+      context: ..                   # project root (one level up from docker/)
+      dockerfile: docker/Dockerfile
+      target: runtime               # use the final runtime stage
+    image: phishguard:dev
+    command: python run.py          # Flask dev server, not gunicorn
+    environment:
+      - FLASK_ENV=development
+      - SECRET_KEY=${SECRET_KEY:-dev-only-secret-do-not-use-in-prod}
+      - MODEL_PATH=/app/models/phishing_model.joblib
+      - PORT=5005
+    ports:
+      - "5005:5005"
+    volumes:
+      # Mount source code for hot-reload
+      - ../src:/app/src
+      - ../app:/app/app
+      - ../run.py:/app/run.py
+      # Mount models dir so training output is visible immediately
+      - phishguard_models:/app/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5005/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # prod — Gunicorn production server
+  # ---------------------------------------------------------------------------
+  prod:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: runtime
+    image: phishguard:latest
+    command: gunicorn --config gunicorn.conf.py run:app
+    environment:
+      # SECRET_KEY must be set in .env or the environment — no fallback in prod
+      - SECRET_KEY=${SECRET_KEY}
+      - MODEL_PATH=/app/models/phishing_model.joblib
+      - PORT=5005
+      - WEB_CONCURRENCY=${WEB_CONCURRENCY:-3}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    ports:
+      - "5005:5005"
+    volumes:
+      # Models are NOT baked into the image — they're injected via this volume.
+      # Run the `train` service once to populate the volume, then restart `prod`.
+      - phishguard_models:/app/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5005/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # train — one-shot training pipeline
+  # ---------------------------------------------------------------------------
+  # Run with:   docker compose run --rm train
+  # Or skip URL download:  docker compose run --rm train --skip-download
+  # ---------------------------------------------------------------------------
+  train:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: runtime
+    image: phishguard:latest
+    command: python scripts/train_pipeline.py
+    environment:
+      - SECRET_KEY=train-only-not-used
+    volumes:
+      # Persist training data and models across runs
+      - phishguard_models:/app/models
+      - phishguard_data:/app/data/processed
+      # Mount scripts so you can edit train_pipeline.py without rebuilding
+      - ../scripts:/app/scripts
+    # Training can take 10+ minutes — no restart
+    restart: "no"
+
+# ---------------------------------------------------------------------------
+# Named volumes — survive container restarts and are shared across services
+# ---------------------------------------------------------------------------
+volumes:
+  phishguard_models:
+    # Stores phishing_model.joblib; shared by train → prod/dev
+  phishguard_data:
+    # Stores phishing_urls.txt, legitimate_urls.txt, url_dataset.csv
