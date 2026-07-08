@@ -1,0 +1,44 @@
+# =============================================================================
+# Base Kustomization
+# =============================================================================
+#
+# This is the base layer shared by all environments.
+# Overlays (dev / staging / production) reference this base and apply patches.
+#
+# Why kustomize instead of raw YAML?
+# ─────────────────────────────────────
+# - No templating language to learn (unlike Helm).
+# - Patches are surgical: you change only what differs per environment, not
+#   the entire manifest.
+# - commonLabels and namePrefix are applied consistently across all resources.
+# - Image tag substitution: `kustomize edit set image` updates the image tag
+#   in a single command, which CI/CD uses to pin the deployed version.
+# =============================================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: phishguard
+
+# Resources in dependency order:
+# Namespace → ServiceAccount → ConfigMap → PVC → Deployment → Service → HPA
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - configmap.yaml
+  - pvc.yaml
+  - deployment.yaml
+  - service.yaml
+  - hpa.yaml
+
+# Common labels applied to ALL resources generated from this base.
+# Useful for `kubectl get all -l app.kubernetes.io/name=phishguard`
+commonLabels:
+  app.kubernetes.io/name: phishguard
+  app.kubernetes.io/managed-by: kustomize
+
+# Image placeholder — overlays and CI use `kustomize edit set image` to
+# update this to the exact digest being deployed.
+images:
+  - name: ghcr.io/rahulkp-ai/phishguard
+    newTag: latest

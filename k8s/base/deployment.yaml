@@ -1,0 +1,255 @@
+# =============================================================================
+# Deployment — phishguard
+# =============================================================================
+#
+# Key design decisions explained inline below.
+# =============================================================================
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phishguard
+  namespace: phishguard
+  labels:
+    app.kubernetes.io/name: phishguard
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+  annotations:
+    # Describes the rollout strategy so operators understand the intent
+    deployment.kubernetes.io/description: "PhishGuard URL phishing detection API"
+spec:
+  # Base replica count — overlays override per environment.
+  replicas: 2
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Rolling update strategy
+  # ──────────────────────────────────────────────────────────────────────────
+  # maxUnavailable: 0  — never take a pod offline before its replacement is ready.
+  #                      Zero downtime deployments.
+  # maxSurge: 1        — spin up 1 extra pod during the rollout.
+  #                      With 2 replicas, this means 3 pods briefly exist.
+  # ──────────────────────────────────────────────────────────────────────────
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: phishguard
+
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: phishguard
+        app.kubernetes.io/component: api
+      annotations:
+        # Force pod restart when ConfigMap changes.
+        # Kubernetes does NOT restart pods on ConfigMap updates by default.
+        # This annotation is a hash of the configmap — kustomize or helm
+        # can update it to trigger a rollout.  We set a placeholder here;
+        # the scripts/deploy.sh updates it with the real hash.
+        checksum/config: "placeholder-updated-by-deploy-script"
+    spec:
+      serviceAccountName: phishguard
+
+      # ──────────────────────────────────────────────────────────────────────
+      # Pod-level security context
+      # ──────────────────────────────────────────────────────────────────────
+      securityContext:
+        # Run all containers as non-root (matches uid=1001 from Dockerfile)
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        # Mounts /tmp and other tmpfs paths as non-world-writable
+        fsGroup: 1001
+        # Prevent privilege escalation (e.g. setuid binaries)
+        seccompProfile:
+          type: RuntimeDefault
+
+      # ──────────────────────────────────────────────────────────────────────
+      # Init container — waits for the model file to exist before starting
+      # the main container.  This prevents a race where the pod starts before
+      # the training job has written the model to the shared volume.
+      # ──────────────────────────────────────────────────────────────────────
+      initContainers:
+        - name: wait-for-model
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for model file at /app/models/phishing_model.joblib..."
+              until [ -f /app/models/phishing_model.joblib ]; do
+                echo "  Model not found yet. Retrying in 10s..."
+                sleep 10
+              done
+              echo "Model file found. Starting main container."
+          volumeMounts:
+            - name: model-storage
+              mountPath: /app/models
+              readOnly: true
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+
+      containers:
+        - name: phishguard
+          # Image tag is overridden per overlay / per deployment.
+          # Base uses latest; production overlay pins to a specific digest.
+          image: ghcr.io/rahulkp-ai/phishguard:latest
+
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+
+          # ──────────────────────────────────────────────────────────────────
+          # Environment — split across ConfigMap (non-secret) and Secret
+          # ──────────────────────────────────────────────────────────────────
+          envFrom:
+            # All keys from ConfigMap become environment variables
+            - configMapRef:
+                name: phishguard-config
+          env:
+            # SECRET_KEY comes from a Secret, not the ConfigMap.
+            # The Secret must be created manually — see k8s/scripts/create-secrets.sh
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: phishguard-secret
+                  key: SECRET_KEY
+
+          # ──────────────────────────────────────────────────────────────────
+          # Probes
+          # ──────────────────────────────────────────────────────────────────
+          #
+          # startupProbe: gives the container time to load the ML model before
+          #   liveness checks begin.  Model loading can take 5–15 seconds.
+          #   failureThreshold × periodSeconds = 60s max startup time.
+          #
+          # livenessProbe: if this fails, Kubernetes restarts the container.
+          #   Checks that the process is alive and responding.
+          #   Use a shallow endpoint — NOT /api/predict (too expensive).
+          #
+          # readinessProbe: if this fails, the pod is removed from the Service
+          #   endpoints and receives no traffic.  Deeper check than liveness —
+          #   verifies the model is actually loaded (model_loaded: true).
+          # ──────────────────────────────────────────────────────────────────
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            failureThreshold: 6 # 6 × 10s = 60s to start up
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 0 # startupProbe handles initial delay
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3 # restart after 3 consecutive failures
+
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 0
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 2 # remove from LB after 2 consecutive failures
+
+          # ──────────────────────────────────────────────────────────────────
+          # Resource requests and limits
+          # ──────────────────────────────────────────────────────────────────
+          #
+          # requests: what Kubernetes reserves for scheduling.
+          #   The scheduler uses this to decide which node to place the pod on.
+          #
+          # limits: hard cap.  CPU is throttled at the limit (not killed).
+          #   Memory kill triggers OOMKill — set high enough to hold the model.
+          #
+          # Random Forest model (~50 MB) + gunicorn workers:
+          #   Memory: ~300 MB per worker process × 3 workers = ~900 MB.
+          #   With preload_app=True, model is shared via copy-on-write:
+          #   actual usage closer to ~250 MB.
+          #
+          # Base values are conservative — overlays increase for production.
+          # ──────────────────────────────────────────────────────────────────
+          resources:
+            requests:
+              cpu: "100m" # 0.1 vCPU guaranteed
+              memory: "256Mi"
+            limits:
+              cpu: "500m" # 0.5 vCPU max
+              memory: "512Mi"
+
+          # ──────────────────────────────────────────────────────────────────
+          # Container-level security context
+          # ──────────────────────────────────────────────────────────────────
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+            capabilities:
+              drop:
+                - ALL # drop all Linux capabilities (NET_BIND_SERVICE etc.)
+
+          volumeMounts:
+            # Model storage — read-only in the main container
+            - name: model-storage
+              mountPath: /app/models
+              readOnly: true
+            # /tmp must be writable (gunicorn worker temp files)
+            - name: tmp
+              mountPath: /tmp
+            # /app/data directory for any runtime data writes
+            - name: data-tmp
+              mountPath: /app/data/processed
+
+      # ──────────────────────────────────────────────────────────────────────
+      # Volumes
+      # ──────────────────────────────────────────────────────────────────────
+      volumes:
+        # Model storage — backed by a PersistentVolumeClaim (see below).
+        # The training Job writes the model here; the API reads it.
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: phishguard-model-pvc
+            readOnly: false # init container needs write; main container uses readOnly mount
+
+        # tmpfs volumes — ephemeral, in-memory.  No disk I/O, no persistence.
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+
+        - name: data-tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 64Mi
+
+      # ──────────────────────────────────────────────────────────────────────
+      # Scheduling
+      # ──────────────────────────────────────────────────────────────────────
+      # Prefer spreading pods across different nodes (anti-affinity).
+      # If only one node is available, it still schedules (preferredDuringScheduling).
+      # ──────────────────────────────────────────────────────────────────────
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: phishguard
+                topologyKey: kubernetes.io/hostname
+
+      # Graceful termination: give gunicorn 30s to finish in-flight requests
+      terminationGracePeriodSeconds: 30

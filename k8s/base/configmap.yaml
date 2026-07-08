@@ -1,0 +1,43 @@
+# =============================================================================
+# ConfigMap — phishguard-config
+# =============================================================================
+#
+# Stores non-sensitive configuration.  Sensitive values (SECRET_KEY) live in
+# the Secret and are never stored in this file or version control.
+#
+# Why separate ConfigMap from Secret?
+# ─────────────────────────────────────
+# - Secrets are encrypted at rest by the cluster (when encryption providers
+#   are configured) and have separate RBAC controls.
+# - ConfigMaps can be safely stored in version control and viewed by anyone
+#   with cluster access — Secrets cannot.
+# - Different update cadences: config changes frequently, secrets rarely.
+# =============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: phishguard-config
+  namespace: phishguard
+  labels:
+    app.kubernetes.io/name: phishguard
+    app.kubernetes.io/component: api
+data:
+  # Server
+  PORT: "5000"
+
+  # Gunicorn worker count.
+  # Overlays override this per environment.
+  # Formula: (2 × vCPU) + 1.  Base uses 3 (assumes 1 vCPU in base).
+  WEB_CONCURRENCY: "3"
+
+  # Gunicorn request timeout in seconds.
+  # Batch endpoint with 50 URLs worst-case ≈ 500 ms — 60 s is headroom.
+  GUNICORN_TIMEOUT: "60"
+
+  # Log level: debug | info | warning | error
+  LOG_LEVEL: "info"
+
+  # Model path inside the container.
+  # Matches the mountPath of the model PersistentVolumeClaim.
+  MODEL_PATH: "/app/models/phishing_model.joblib"

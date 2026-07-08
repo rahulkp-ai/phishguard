@@ -1,0 +1,47 @@
+# =============================================================================
+# PersistentVolumeClaim — phishguard-model-pvc
+# =============================================================================
+#
+# The trained model file (phishing_model.joblib, ~50 MB) must persist across
+# pod restarts and be accessible to all API pod replicas simultaneously.
+#
+# Access mode: ReadWriteMany (RWX)
+# ─────────────────────────────────
+# RWX allows multiple pods to mount the volume simultaneously — required
+# because we run 2+ replicas.
+#
+# Cloud provider RWX support:
+#   AWS    → EFS (Elastic File System) via `efs.csi.aws.com` StorageClass
+#   GCP    → Filestore via `filestore.csi.storage.gke.io` StorageClass
+#   Azure  → Azure Files via `azurefile` StorageClass
+#   Local  → NFS provisioner, or `standard` on minikube/kind (for dev only)
+#
+# The `storageClassName` is set to empty string here so each overlay can
+# patch it with the correct cloud-provider class.  Leaving it empty uses
+# the cluster's default StorageClass.
+#
+# Alternative: if RWX storage is expensive or unavailable, switch to
+# ReadWriteOnce and keep replicas=1, or use an object store (S3/GCS) to
+# distribute the model and load it into memory at startup.
+# =============================================================================
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: phishguard-model-pvc
+  namespace: phishguard
+  labels:
+    app.kubernetes.io/name: phishguard
+    app.kubernetes.io/component: model-storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 1Gi    # 50 MB model + room for versioned checkpoints
+  # Empty string = use cluster default StorageClass.
+  # Override in overlays:
+  #   dev:        standard (minikube/kind)
+  #   staging:    standard or cloud-specific
+  #   production: efs / filestore / azurefile
+  storageClassName: ""

@@ -1,0 +1,43 @@
+# =============================================================================
+# Service — phishguard
+# =============================================================================
+#
+# ClusterIP (default) — accessible only within the cluster.
+# External traffic enters via the Ingress, not directly through this Service.
+#
+# Why ClusterIP instead of LoadBalancer?
+# ──────────────────────────────────────
+# - LoadBalancer provisions a cloud load balancer per Service (expensive).
+# - One Ingress controller handles all external traffic and routes to multiple
+#   Services by hostname/path — far more cost-efficient.
+# - ClusterIP keeps the Service internal, reducing the attack surface.
+#
+# Port mapping: 80 (service) → 5000 (container)
+# The Ingress terminates TLS on 443 and forwards plain HTTP to this Service
+# on port 80, which proxies to gunicorn on 5000 inside the pod.
+# =============================================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: phishguard
+  namespace: phishguard
+  labels:
+    app.kubernetes.io/name: phishguard
+    app.kubernetes.io/component: api
+  annotations:
+    # Prometheus scrape annotations — if you have a Prometheus instance,
+    # it will discover this Service and scrape /metrics automatically.
+    # (Phase 9 adds the actual /metrics endpoint.)
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "5000"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: phishguard
+  ports:
+    - name: http
+      port: 80
+      targetPort: http    # references the named port in the Deployment
+      protocol: TCP

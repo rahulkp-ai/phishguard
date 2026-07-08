@@ -1,0 +1,90 @@
+# =============================================================================
+# HorizontalPodAutoscaler — phishguard
+# =============================================================================
+#
+# Automatically scales the number of API pods between minReplicas and
+# maxReplicas based on CPU and memory utilisation.
+#
+# How HPA works
+# ──────────────
+# Every 15 seconds (default sync period), the HPA controller reads CPU/memory
+# metrics from the Metrics Server and computes:
+#
+#   desiredReplicas = ceil(currentReplicas × (currentUtilisation / targetUtilisation))
+#
+# Example:
+#   2 pods running, CPU at 80%, target is 60%
+#   desiredReplicas = ceil(2 × 80/60) = ceil(2.67) = 3 pods
+#
+# Scale-up:   allowed immediately when threshold is breached.
+# Scale-down: delayed by stabilizationWindowSeconds (300s = 5 min) to prevent
+#             thrashing — pods spinning up/down every 30 seconds is disruptive.
+#
+# Prerequisites
+# ─────────────
+# The Metrics Server must be installed in the cluster:
+#   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+#
+# On minikube:
+#   minikube addons enable metrics-server
+# =============================================================================
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: phishguard
+  namespace: phishguard
+  labels:
+    app.kubernetes.io/name: phishguard
+    app.kubernetes.io/component: api
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: phishguard
+
+  # Base: 2–6 replicas.  Overlays adjust per environment.
+  minReplicas: 2
+  maxReplicas: 6
+
+  metrics:
+    # ── CPU ──────────────────────────────────────────────────────────────────
+    # Scale up when average CPU across all pods exceeds 60% of their request.
+    # ML inference is CPU-bound — this is the primary scaling signal.
+    # ─────────────────────────────────────────────────────────────────────────
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+
+    # ── Memory ───────────────────────────────────────────────────────────────
+    # Scale up when average memory exceeds 75% of the request.
+    # Secondary signal — guards against memory pressure from large batch requests.
+    # ─────────────────────────────────────────────────────────────────────────
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+
+  behavior:
+    scaleUp:
+      # Allow adding up to 2 pods per 60-second window.
+      # Prevents a traffic spike from instantly provisioning max replicas.
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+
+    scaleDown:
+      # Wait 5 minutes of sustained low utilisation before removing pods.
+      # Prevents thrashing when traffic is bursty.
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120    # remove at most 1 pod every 2 minutes

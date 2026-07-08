@@ -1,0 +1,22 @@
+# =============================================================================
+# Namespace — phishguard
+# =============================================================================
+#
+# Why a dedicated namespace?
+# ──────────────────────────
+# - Resource isolation: CPU/memory limits apply per-namespace.
+# - RBAC isolation: service account permissions are namespace-scoped.
+# - Network policy scope: policies can be restricted to this namespace.
+# - Clean teardown: `kubectl delete namespace phishguard` removes everything.
+#
+# All PhishGuard resources (Deployment, Service, HPA, ConfigMap, Secret)
+# are deployed into this namespace.
+# =============================================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: phishguard
+  labels:
+    app.kubernetes.io/name: phishguard
+    app.kubernetes.io/managed-by: kustomize
