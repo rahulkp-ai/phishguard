@@ -28,7 +28,7 @@ dependencies = [
     # Prometheus metrics
     "prometheus-client>=0.20.0",
     # Data collection
-    "requests>=2.31.0",
+    "requests>=2.34.2",
 ]
 
 [project.optional-dependencies]
