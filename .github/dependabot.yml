@@ -1,0 +1,60 @@
+# =============================================================================
+# Dependabot — automated dependency update PRs
+# =============================================================================
+#
+# Dependabot will open PRs weekly to update:
+#   1. Python dependencies in pyproject.toml
+#   2. GitHub Actions versions in .github/workflows/
+#
+# PRs are automatically labelled so you can filter them.
+# CI runs on each Dependabot PR so you know immediately if an update breaks anything.
+# =============================================================================
+
+version: 2
+
+updates:
+  # Python package updates
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    labels:
+      - "dependencies"
+      - "python"
+    # Limit open PRs to avoid noise — merge before more are opened
+    open-pull-requests-limit: 5
+    # Group minor and patch updates into one PR per week
+    groups:
+      ml-dependencies:
+        patterns:
+          - "scikit-learn"
+          - "numpy"
+          - "pandas"
+          - "joblib"
+      web-dependencies:
+        patterns:
+          - "flask"
+          - "gunicorn"
+          - "structlog"
+      dev-dependencies:
+        patterns:
+          - "pytest*"
+          - "ruff"
+          - "black"
+          - "coverage*"
+
+  # GitHub Actions version updates
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: "Asia/Kolkata"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    open-pull-requests-limit: 5

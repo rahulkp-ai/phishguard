@@ -1,0 +1,133 @@
+# =============================================================================
+# PhishGuard — Docker Image Publish
+# =============================================================================
+#
+# Triggers
+# ─────────
+#   push to main          → image tagged :latest + :sha-<commit>
+#   push of v* tag        → image tagged :<version> + :latest
+#                           (e.g. v1.2.3 → ghcr.io/<owner>/phishguard:1.2.3)
+#
+# Registry: GitHub Container Registry (GHCR)
+#   Image: ghcr.io/<owner>/phishguard
+#
+# Why GHCR over Docker Hub?
+#   - No rate limits for public repos.
+#   - Authentication uses the existing GITHUB_TOKEN — no separate secret needed.
+#   - Image visibility is controlled by the repo visibility.
+#   - Tight GitHub integration (linked packages, package permissions per repo).
+#
+# Caching strategy
+# ─────────────────
+#   type=registry cache: layers cached in GHCR itself.
+#   This means the cache persists across GitHub-hosted runner instances,
+#   which have ephemeral filesystems.  Rebuild after a dependency change
+#   only re-runs the pip install layer, not the base image pull.
+# =============================================================================
+
+name: Docker Publish
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]        # matches v1.0.0, v2.1.3, etc.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "tests/**"          # test changes don't require a new image
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/phishguard
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # Required permissions for GHCR push
+    permissions:
+      contents: read
+      packages: write
+      # Required for image signing with cosign (optional hardening step)
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Install cosign for image signing (supply-chain security)
+      # Signing proves the image was built by this workflow, not tampered with.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: "v2.2.4"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Generate image metadata and tags from Git context:
+      #   main branch  → :latest, :sha-<commit>
+      #   v1.2.3 tag   → :1.2.3, :1.2, :1, :latest
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # Semantic version tags from git tags (v1.2.3 → 1.2.3, 1.2, 1)
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # Short commit SHA for every push (traceability)
+            type=sha,prefix=sha-,format=short
+            # :latest on main branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build and push Docker image
+        id: build-push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Registry-based layer cache — survives across runner instances
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
+          # Build provenance attestation (SLSA level 1)
+          provenance: true
+          # SBOM (Software Bill of Materials) — auditable dependency manifest
+          sbom: true
+
+      # Sign the image digest with cosign (keyless, OIDC-based)
+      # This creates a verifiable signature in the Rekor transparency log.
+      - name: Sign the Docker image
+        env:
+          DIGEST: ${{ steps.build-push.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          echo "${TAGS}" | xargs -I {} cosign sign --yes \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST}
+
+      - name: Image summary
+        run: |
+          echo "## Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Registry:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** \`${{ steps.build-push.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY

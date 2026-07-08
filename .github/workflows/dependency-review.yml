@@ -1,0 +1,60 @@
+# =============================================================================
+# PhishGuard — Dependency Review
+# =============================================================================
+#
+# Runs on every PR to main and scans the dependency diff — only the packages
+# being added or updated in this PR, not the entire dependency tree.
+#
+# Blocks merge if any newly introduced dependency has:
+#   - A known CVE with severity HIGH or CRITICAL
+#   - An OSI-incompatible license (configurable below)
+#
+# Why dependency-review instead of just Dependabot alerts?
+#   Dependabot alerts notify you after a vulnerable package is already in main.
+#   Dependency review blocks the PR before it merges, which is the right place
+#   to catch this — the cost of fixing it is lowest when the PR is still open.
+# =============================================================================
+
+name: Dependency Review
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+      pull-requests: write    # required to post review comments on the PR
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          # Block on HIGH and CRITICAL CVEs.
+          # MODERATE is allowed — many false positives in ML/data science deps.
+          fail-on-severity: high
+
+          # Allowed licenses — OSI-approved permissive and copyleft licenses
+          # that are compatible with this project's use case.
+          allow-licenses: >-
+            MIT,
+            Apache-2.0,
+            BSD-2-Clause,
+            BSD-3-Clause,
+            ISC,
+            Python-2.0,
+            PSF-2.0,
+            LGPL-2.1,
+            LGPL-3.0,
+            MPL-2.0
+
+          # Post a summary comment on the PR with the review results
+          comment-summary-in-pr: always
