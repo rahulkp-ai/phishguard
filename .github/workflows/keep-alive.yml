@@ -1,0 +1,63 @@
+# =============================================================================
+# Keep-Alive — prevents Render free tier spin-down
+# =============================================================================
+#
+# Render free tier spins down after 15 minutes of inactivity.
+# The first request after spin-down takes 30–60 seconds to respond — bad UX.
+#
+# This workflow pings /api/health every 14 minutes using GitHub Actions
+# scheduled workflows (free for public repos).
+#
+# Setup:
+#   1. Deploy to Render and get your URL (e.g. https://phishguard.onrender.com)
+#   2. Add it as a repository secret:
+#        Settings → Secrets → New secret
+#        Name:  RENDER_URL
+#        Value: https://phishguard.onrender.com
+#   3. Push this file — GitHub will run it automatically
+#
+# Cost: $0. GitHub Actions cron jobs are free for public repos.
+#
+# Note: GitHub Actions cron precision is ±a few minutes — this is fine.
+# The goal is staying under 15 min, not exact timing.
+# =============================================================================
+
+name: Keep Alive (Render)
+
+on:
+  schedule:
+    # Every 14 minutes — stays under Render's 15-min spin-down threshold
+    - cron: "*/14 * * * *"
+  workflow_dispatch:    # allow manual trigger for testing
+
+jobs:
+  ping:
+    name: Ping Render Service
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - name: Ping /api/health
+        run: |
+          URL="${{ secrets.RENDER_URL }}"
+
+          if [[ -z "$URL" ]]; then
+            echo "RENDER_URL secret not set. Skipping ping."
+            echo "Add it in Settings → Secrets → RENDER_URL = https://your-app.onrender.com"
+            exit 0
+          fi
+
+          echo "Pinging $URL/api/health ..."
+          RESPONSE=$(curl --silent --max-time 30 --write-out "\n%{http_code}" "$URL/api/health")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+
+          echo "Status: $HTTP_CODE"
+          echo "Body:   $BODY"
+
+          if [[ "$HTTP_CODE" == "200" ]]; then
+            echo "Service is alive."
+          else
+            echo "WARNING: Unexpected status $HTTP_CODE"
+            # Don't fail — the service may be waking up. Next ping will confirm.
+          fi

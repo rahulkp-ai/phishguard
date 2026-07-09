@@ -1,0 +1,145 @@
+# =============================================================================
+# Deploy to GCP Cloud Run
+# =============================================================================
+#
+# Triggers on push to main after CI passes.
+# Uses Workload Identity Federation — no long-lived service account keys
+# stored as GitHub secrets. This is Google's recommended approach.
+#
+# Setup (one-time):
+#   bash deploy/gcp/setup-wif.sh
+#
+# Required GitHub secrets:
+#   GCP_PROJECT_ID          your GCP project ID
+#   GCP_WORKLOAD_IDENTITY   the WIF provider resource name (from setup-wif.sh)
+#   GCP_SERVICE_ACCOUNT     the service account email (from setup-wif.sh)
+#
+# Free tier: Cloud Run in us-central1 → 2M requests/month free forever.
+# =============================================================================
+
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "k8s/**"            # K8s changes don't trigger Cloud Run deploy
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1       # free tier region — don't change
+  REPO: phishguard
+  SERVICE: phishguard
+
+jobs:
+  deploy:
+    name: Build & Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Skip if triggered by workflow_run that failed
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+
+    permissions:
+      contents: read
+      id-token: write       # required for Workload Identity Federation
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Authenticate to GCP using Workload Identity Federation
+      # No service account key JSON stored in GitHub Secrets
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push image (with model training)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/render/Dockerfile.render    # same bake-in strategy
+          push: true
+          tags: |
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/phishguard:${{ github.sha }}
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/phishguard:latest
+          cache-from: type=registry,ref=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/phishguard:buildcache
+          cache-to: type=registry,ref=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/phishguard:buildcache,mode=max
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/phishguard:${{ github.sha }}
+          flags: >
+            --allow-unauthenticated
+            --memory=512Mi
+            --cpu=1
+            --min-instances=0
+            --max-instances=3
+            --concurrency=10
+            --timeout=60s
+          env_vars: |
+            MODEL_PATH=/app/models/phishing_model.joblib
+            LOG_LEVEL=info
+            WEB_CONCURRENCY=2
+          secrets: |
+            SECRET_KEY=phishguard-secret-key:latest
+
+      - name: Smoke test
+        run: |
+          URL="${{ steps.deploy.outputs.url }}"
+          echo "Deployed to: $URL"
+
+          # Wait for service to be ready
+          sleep 5
+
+          RESPONSE=$(curl --silent --fail --max-time 15 "$URL/api/health")
+          echo "Health response: $RESPONSE"
+
+          STATUS=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin)['status'])")
+          echo "Status: $STATUS"
+
+          if [[ "$STATUS" == "ok" ]]; then
+            echo "Deployment successful."
+          elif [[ "$STATUS" == "degraded" ]]; then
+            echo "Warning: model not loaded (degraded) — check model path."
+          else
+            echo "Error: unexpected status '$STATUS'" && exit 1
+          fi
+
+      - name: Write deployment summary
+        run: |
+          URL="${{ steps.deploy.outputs.url }}"
+          echo "## Deployed to Cloud Run" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**URL:** $URL" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/phishguard:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Free tier usage this month:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Cloud Run: 2,000,000 requests free" >> $GITHUB_STEP_SUMMARY
+          echo "- Egress: 1 GB free" >> $GITHUB_STEP_SUMMARY
+          echo "- Region: us-central1 (free tier eligible)" >> $GITHUB_STEP_SUMMARY
