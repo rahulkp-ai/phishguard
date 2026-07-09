@@ -1,0 +1,87 @@
+# =============================================================================
+# Dockerfile.render — Render free tier deployment
+# =============================================================================
+#
+# Problem: Render free tier has no persistent disks.
+# Solution: Train the model INSIDE the Docker build and bake it into the image.
+#
+# Stage 1 (trainer): downloads data + trains Random Forest → model.joblib
+# Stage 2 (builder): installs runtime Python deps into /install
+# Stage 3 (runtime): lean image with app + deps + pre-trained model
+#
+# Build time: ~8–12 min on first deploy (Render provides good build hardware).
+# Subsequent deploys use Docker layer cache — only retrain if source changes.
+#
+# Resource awareness for free tier (512 MB RAM):
+#   - Training uses --cap 8000 to limit RAM during build (not during inference)
+#   - WEB_CONCURRENCY=1 in render.yaml (one gunicorn worker)
+#   - preload_app=True in gunicorn.conf.py shares the model across workers
+# =============================================================================
+
+# ── Stage 1: train ────────────────────────────────────────────────────────────
+FROM python:3.12-slim AS trainer
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /train
+
+COPY pyproject.toml .
+COPY src/ src/
+COPY scripts/ scripts/
+
+RUN pip install -e . --quiet
+
+# Train with a smaller dataset cap so the build stays under Render's 20-min limit.
+# Increase --cap after your first successful deploy to improve model accuracy.
+RUN PYTHONPATH=/train/src python scripts/train_pipeline.py --cap 8000
+
+# ── Stage 2: builder ──────────────────────────────────────────────────────────
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /build
+COPY pyproject.toml .
+COPY src/ src/
+RUN pip install --prefix=/install . --quiet
+
+# ── Stage 3: runtime ──────────────────────────────────────────────────────────
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --gid 1001 phishguard \
+    && useradd --uid 1001 --gid 1001 --no-create-home --shell /bin/false phishguard
+
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+COPY src/ src/
+COPY app/ app/
+COPY docker/gunicorn.conf.py docker/gunicorn.conf.py
+COPY run.py .
+
+# ── Bake the trained model into the image ─────────────────────────────────────
+# This is what makes the app work without a persistent volume.
+COPY --from=trainer /train/models/phishing_model.joblib models/phishing_model.joblib
+
+RUN chown -R phishguard:phishguard /app
+USER phishguard
+
+EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=3 \
+    CMD curl --fail --silent http://localhost:${PORT:-5000}/api/health || exit 1
+
+# Render sets PORT automatically — gunicorn.conf.py reads it via os.environ.get('PORT')
+CMD ["gunicorn", "--config", "docker/gunicorn.conf.py", "run:app"]

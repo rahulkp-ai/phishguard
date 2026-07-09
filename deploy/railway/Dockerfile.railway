@@ -1,0 +1,97 @@
+# =============================================================================
+# Dockerfile.railway — Railway deployment
+# =============================================================================
+#
+# Railway's free plan has no persistent volumes.  The model must be baked
+# into the image at build time.
+#
+# Strategy: 3-stage build
+# ─────────────────────────
+# Stage 1 (trainer): installs ML deps, downloads data, trains the model.
+# Stage 2 (builder): installs all runtime deps into /install.
+# Stage 3 (runtime): copies the trained model + app + deps, no build tools.
+#
+# Railway provides 8 GB RAM and 8 vCPUs during builds — more than enough
+# to train the Random Forest in a single CI/CD build step.
+#
+# Build time: ~5–10 min (download + training).
+# After the first build, Docker layer caching means subsequent deploys
+# only retrain if you explicitly invalidate the cache with --no-cache.
+#
+# For this reason, production deployments should use the GCP Cloud Run
+# strategy (model stored in GCS) which doesn't couple training to image
+# builds.  Railway is ideal for portfolio demos where the model is stable.
+# =============================================================================
+
+# ── Stage 1: train ────────────────────────────────────────────────────────────
+FROM python:3.12-slim AS trainer
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /train
+
+COPY pyproject.toml .
+COPY src/ src/
+COPY scripts/train_pipeline.py scripts/
+
+# Install full ML stack
+RUN pip install -e ".[dev]" --prefix=/train-deps
+
+# Run training pipeline (skip download if URL files already exist)
+# The --cap flag limits the dataset to 10,000 URLs per class so the
+# build completes in under 10 minutes on Railway's build runners.
+# Remove --cap (or increase it) after your first successful deploy.
+RUN PYTHONPATH=/train/src \
+    python scripts/train_pipeline.py --cap 10000 \
+    && ls -lh models/
+
+# ── Stage 2: builder ──────────────────────────────────────────────────────────
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /build
+COPY pyproject.toml .
+COPY src/ src/
+RUN pip install --prefix=/install .
+
+# ── Stage 3: runtime ──────────────────────────────────────────────────────────
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd --gid 1001 phishguard \
+    && useradd --uid 1001 --gid 1001 --no-create-home --shell /bin/false phishguard
+
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+COPY src/ src/
+COPY app/ app/
+COPY docker/gunicorn.conf.py docker/gunicorn.conf.py
+COPY run.py .
+
+# Copy the trained model from the trainer stage
+# This is what makes it work without persistent volumes
+COPY --from=trainer /train/models/phishing_model.joblib models/phishing_model.joblib
+
+RUN chown -R phishguard:phishguard /app
+
+USER phishguard
+
+EXPOSE 5000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl --fail --silent http://localhost:5000/api/health || exit 1
+
+CMD ["gunicorn", "--config", "docker/gunicorn.conf.py", "run:app"]

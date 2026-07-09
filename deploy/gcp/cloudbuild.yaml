@@ -1,0 +1,98 @@
+# =============================================================================
+# cloudbuild.yaml — Google Cloud Build pipeline
+# =============================================================================
+#
+# This file defines the full CI/CD pipeline that runs on Google Cloud Build
+# (free tier: 120 build-minutes/day).
+#
+# Pipeline steps:
+#   1. Run tests inside a Docker container
+#   2. Build the Docker image (with model training baked in)
+#   3. Push to Artifact Registry (free: first 0.5 GB/month)
+#   4. Deploy to Cloud Run
+#
+# Trigger this pipeline from GitHub:
+#   gcloud builds triggers create github \
+#     --repo-name=phishing-detection \
+#     --repo-owner=YOUR_GITHUB_USERNAME \
+#     --branch-pattern="^main$" \
+#     --build-config=deploy/gcp/cloudbuild.yaml
+#
+# Free tier limits (verified June 2026):
+#   Cloud Build:      120 build-minutes/day free
+#   Artifact Registry: 0.5 GB free storage/month
+#   Cloud Run:        2M requests/month free (us-central1 only)
+#   Cloud Storage:    5 GB free (for model storage)
+# =============================================================================
+
+steps:
+  # ── Step 1: Run tests ────────────────────────────────────────────────────────
+  - name: python:3.12-slim
+    id: test
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        pip install -e ".[dev]" -q
+        pytest tests/ --fast -q
+    env:
+      - SECRET_KEY=ci-testing-secret
+      - PYTHONPATH=/workspace/src
+
+  # ── Step 2: Build Docker image ───────────────────────────────────────────────
+  # Uses the Render Dockerfile (bakes model in) — same strategy works for Cloud Run.
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    args:
+      - build
+      - -f
+      - deploy/render/Dockerfile.render       # reuse the bake-in-build Dockerfile
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/phishguard:$COMMIT_SHA
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/phishguard:latest
+      - --cache-from
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/phishguard:latest
+      - .
+    timeout: 1200s    # 20 minutes — model training inside build
+
+  # ── Step 3: Push to Artifact Registry ────────────────────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: push
+    args:
+      - push
+      - --all-tags
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/phishguard
+
+  # ── Step 4: Deploy to Cloud Run ──────────────────────────────────────────────
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - phishguard
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/phishguard:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated        # public API — no auth required per request
+      - --memory=512Mi
+      - --cpu=1
+      - --min-instances=0             # scale to zero when idle (free tier optimization)
+      - --max-instances=3
+      - --concurrency=10
+      - --timeout=60s
+      - --set-env-vars=MODEL_PATH=/app/models/phishing_model.joblib,LOG_LEVEL=info,WEB_CONCURRENCY=2
+      - --set-secrets=SECRET_KEY=phishguard-secret-key:latest
+
+# Substitution variables — override at trigger creation or with --substitutions
+substitutions:
+  _REGION: us-central1    # free tier region — DO NOT change to another region
+  _REPO: phishguard
+
+# Store build logs and artifacts
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8    # faster builds — still within free tier
+
+timeout: 1800s    # 30-minute total build timeout
