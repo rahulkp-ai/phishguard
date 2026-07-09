@@ -40,7 +40,7 @@ patches:
 
 # Override the image tag for local dev builds
 images:
-  - name: ghcr.io/YOUR_GITHUB_USERNAME/phishguard
+  - name: ghcr.io/rahulkp-ai/phishguard
     newName: phishguard     # local image name (built with `make docker-build`)
     newTag: dev
 

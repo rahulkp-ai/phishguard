@@ -33,7 +33,7 @@ resources:
   - ingress.yaml
 
 images:
-  - name: ghcr.io/YOUR_GITHUB_USERNAME/phishguard
+  - name: ghcr.io/rahulkp-ai/phishguard
     # CI updates this tag to the exact SHA being deployed:
     #   kustomize edit set image ghcr.io/.../phishguard:sha-abc1234
     newTag: latest

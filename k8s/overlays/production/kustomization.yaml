@@ -38,7 +38,7 @@ resources:
   - ingress.yaml
 
 images:
-  - name: ghcr.io/YOUR_GITHUB_USERNAME/phishguard
+  - name: ghcr.io/rahulkp-ai/phishguard
     # CI/CD pins this to an exact image digest before applying:
     #   kustomize edit set image \
     #     ghcr.io/.../phishguard@sha256:abc123...

@@ -14,7 +14,7 @@
 # Trigger this pipeline from GitHub:
 #   gcloud builds triggers create github \
 #     --repo-name=phishing-detection \
-#     --repo-owner=YOUR_GITHUB_USERNAME \
+#     --repo-owner=rahulkp-ai \
 #     --branch-pattern="^main$" \
 #     --build-config=deploy/gcp/cloudbuild.yaml
 #
