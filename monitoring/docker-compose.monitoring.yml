@@ -1,0 +1,91 @@
+# =============================================================================
+# PhishGuard Monitoring Stack
+# =============================================================================
+#
+# Runs PhishGuard + Prometheus + Grafana together locally.
+#
+# Usage:
+#   # From project root — requires the Docker image to be built first
+#   make docker-build
+#
+#   # Start everything
+#   docker compose -f monitoring/docker-compose.monitoring.yml up
+#
+#   # Open:
+#   #   PhishGuard API:  http://localhost:5000
+#   #   Prometheus:      http://localhost:9090
+#   #   Grafana:         http://localhost:3000  (admin/admin)
+#
+# The Grafana dashboard is auto-provisioned — open Grafana and it's
+# already there under Dashboards → PhishGuard → PhishGuard MLOps Dashboard.
+# =============================================================================
+
+services:
+
+  # ── PhishGuard API ──────────────────────────────────────────────────────────
+  phishguard:
+    image: phishguard:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-monitoring-dev-secret}
+      - MODEL_PATH=/app/models/phishing_model.joblib
+      - PORT=5000
+      - WEB_CONCURRENCY=2
+      - LOG_LEVEL=info
+    ports:
+      - "5000:5000"
+    volumes:
+      - ../models:/app/models:ro
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:5000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ── Prometheus ──────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d   # keep 7 days of metrics locally
+      - --web.enable-lifecycle              # allows config reload via HTTP
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      phishguard:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Grafana ─────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.3.1
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false   # no telemetry
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/phishguard.json
+    ports:
+      - "3000:3000"
+    volumes:
+      # Auto-provision Prometheus datasource
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      # Auto-provision dashboard
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      # Persist Grafana state (saved dashboards, users)
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:

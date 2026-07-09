@@ -1,0 +1,258 @@
+{
+  "__inputs": [],
+  "__requires": [
+    {"type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0"},
+    {"type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0"}
+  ],
+  "annotations": {"list": []},
+  "description": "PhishGuard MLOps — API performance, prediction distribution, and drift detection",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+
+    {
+      "id": 1,
+      "title": "Request Rate (req/s)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"lineWidth": 2, "fillOpacity": 10},
+          "unit": "reqps"
+        }
+      },
+      "options": {"tooltip": {"mode": "multi"}},
+      "targets": [
+        {
+          "expr": "sum(rate(phishguard_http_requests_total[1m])) by (endpoint)",
+          "legendFormat": "{{endpoint}}",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 2,
+      "title": "Request Latency — p50 / p95 / p99",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {"lineWidth": 2}
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(phishguard_http_request_duration_seconds_bucket{endpoint=\"predict\"}[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(phishguard_http_request_duration_seconds_bucket{endpoint=\"predict\"}[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(phishguard_http_request_duration_seconds_bucket{endpoint=\"predict\"}[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ]
+    },
+
+    {
+      "id": 3,
+      "title": "Prediction Distribution",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {"lineWidth": 2, "fillOpacity": 20}
+        },
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "PHISHING"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "LEGITIMATE"}, "properties": [{"id": "color", "value": {"fixedColor": "green", "mode": "fixed"}}]}
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(phishguard_predictions_total[5m])) by (label)",
+          "legendFormat": "{{label}}",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 4,
+      "title": "Rolling Phishing Rate & Drift",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {"unit": "percentunit", "min": 0, "max": 1},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Drift Detected"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}, {"id": "custom.lineWidth", "value": 3}]}
+        ]
+      },
+      "targets": [
+        {
+          "expr": "phishguard_phishing_rate_1m",
+          "legendFormat": "Phishing Rate (1m window)",
+          "refId": "A"
+        },
+        {
+          "expr": "phishguard_drift_baseline",
+          "legendFormat": "Baseline",
+          "refId": "B"
+        },
+        {
+          "expr": "phishguard_drift_detected",
+          "legendFormat": "Drift Detected",
+          "refId": "C"
+        }
+      ],
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          {"color": "green", "value": null},
+          {"color": "orange", "value": 0.65},
+          {"color": "red", "value": 0.85}
+        ]
+      }
+    },
+
+    {
+      "id": 5,
+      "title": "HTTP Error Rate",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "color": {"fixedColor": "red", "mode": "fixed"},
+          "custom": {"lineWidth": 2, "fillOpacity": 20}
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(phishguard_http_requests_total{status=~\"5..\"}[5m])) / sum(rate(phishguard_http_requests_total[5m]))",
+          "legendFormat": "5xx Error Rate",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(phishguard_http_requests_total{status=~\"4..\"}[5m])) / sum(rate(phishguard_http_requests_total[5m]))",
+          "legendFormat": "4xx Error Rate",
+          "refId": "B"
+        }
+      ]
+    },
+
+    {
+      "id": 6,
+      "title": "Prediction Confidence Distribution",
+      "type": "histogram",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {"unit": "short"}
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(phishguard_prediction_confidence_bucket[5m])) by (le)",
+          "legendFormat": "{{le}}%",
+          "refId": "A",
+          "format": "heatmap"
+        }
+      ]
+    },
+
+    {
+      "id": 7,
+      "title": "Active Requests (In-Flight)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 24},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"steps": [
+            {"color": "green", "value": null},
+            {"color": "yellow", "value": 5},
+            {"color": "red", "value": 20}
+          ]}
+        }
+      },
+      "targets": [
+        {"expr": "phishguard_active_requests", "legendFormat": "Active", "refId": "A"}
+      ]
+    },
+
+    {
+      "id": 8,
+      "title": "Model Loaded",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 24},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bool",
+          "color": {"mode": "thresholds"},
+          "thresholds": {"steps": [
+            {"color": "red", "value": null},
+            {"color": "green", "value": 1}
+          ]},
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "NOT LOADED"}, "1": {"text": "LOADED"}}}
+          ]
+        }
+      },
+      "targets": [
+        {"expr": "phishguard_model_loaded", "legendFormat": "", "refId": "A"}
+      ]
+    },
+
+    {
+      "id": 9,
+      "title": "Drift Status",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 24},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {"steps": [
+            {"color": "green", "value": null},
+            {"color": "orange", "value": 1}
+          ]},
+          "mappings": [
+            {"type": "value", "options": {"0": {"text": "NORMAL"}, "1": {"text": "DRIFT"}}}
+          ]
+        }
+      },
+      "targets": [
+        {"expr": "phishguard_drift_detected", "legendFormat": "", "refId": "A"}
+      ]
+    }
+
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["phishguard", "mlops", "flask", "prometheus"],
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "title": "PhishGuard MLOps Dashboard",
+  "uid": "phishguard-mlops",
+  "version": 1
+}

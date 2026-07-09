@@ -1,0 +1,46 @@
+# =============================================================================
+# Prometheus configuration for PhishGuard
+# =============================================================================
+#
+# Prometheus scrapes /metrics on the phishguard service every 15 seconds.
+# The scraped data is stored in Prometheus's time-series database and
+# queried by Grafana to build the dashboard.
+#
+# Start the monitoring stack:
+#   docker compose -f monitoring/docker-compose.monitoring.yml up
+#
+# Then open:
+#   Prometheus: http://localhost:9090
+#   Grafana:    http://localhost:3000  (admin / admin)
+# =============================================================================
+
+global:
+  scrape_interval: 15s        # How often to scrape targets
+  evaluation_interval: 15s    # How often to evaluate alerting rules
+  scrape_timeout: 10s
+
+# Alerting rules (Phase 9 expands this)
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+
+  # ── PhishGuard API ──────────────────────────────────────────────────────────
+  - job_name: phishguard
+    static_configs:
+      - targets:
+          - phishguard:5000    # Docker Compose service name + port
+    metrics_path: /metrics
+    scrape_interval: 15s
+
+    # Add a label to all metrics from this job — useful when you have
+    # multiple environments scraping into the same Prometheus instance
+    relabel_configs:
+      - target_label: environment
+        replacement: local
+
+  # ── Prometheus self-monitoring ───────────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090

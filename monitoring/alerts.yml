@@ -1,0 +1,104 @@
+# =============================================================================
+# Prometheus Alerting Rules — PhishGuard
+# =============================================================================
+#
+# These rules fire alerts when thresholds are breached.
+# In production, wire Prometheus Alertmanager to send these to:
+#   - Slack (most common for ML teams)
+#   - PagerDuty (for on-call escalation)
+#   - Email
+#
+# For a portfolio setup, the alerts appear in Prometheus UI → Alerts tab
+# and are visible in Grafana's alert panel without any Alertmanager setup.
+# =============================================================================
+
+groups:
+  - name: phishguard.api
+    interval: 30s
+    rules:
+
+      # ── High error rate ────────────────────────────────────────────────────
+      # Fires if more than 5% of requests in the last 5 minutes result in
+      # a 5xx error.  This catches model failures, crashes, and OOM kills.
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(phishguard_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(phishguard_http_requests_total[5m]))
+          ) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PhishGuard high error rate"
+          description: >
+            Error rate is {{ humanizePercentage $value }} over the last 5 minutes.
+            Expected < 5%. Check application logs for exceptions.
+
+      # ── High latency ───────────────────────────────────────────────────────
+      # Fires if the 95th percentile latency exceeds 500ms.
+      - alert: HighLatencyP95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(phishguard_http_request_duration_seconds_bucket{endpoint="predict"}[5m]))
+            by (le)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PhishGuard high p95 latency on /api/predict"
+          description: >
+            p95 latency is {{ humanizeDuration $value }} (threshold: 500ms).
+            Check CPU utilisation and model size.
+
+      # ── Model not loaded ───────────────────────────────────────────────────
+      # Fires if the model gauge is 0 — the API is serving 503s.
+      - alert: ModelNotLoaded
+        expr: phishguard_model_loaded == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PhishGuard model is not loaded"
+          description: >
+            The ML model is not loaded. All predictions are returning 503.
+            Check MODEL_PATH env var and run the training pipeline.
+
+      # ── Prediction drift ───────────────────────────────────────────────────
+      # Fires when the drift detector gauge is 1.
+      - alert: PredictionDriftDetected
+        expr: phishguard_drift_detected == 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PhishGuard prediction drift detected"
+          description: >
+            The rolling phishing prediction rate has deviated significantly
+            from the baseline ({{ $value | humanizePercentage }}).
+            This may indicate a new phishing campaign, unusual traffic,
+            or model degradation. Consider retraining.
+
+  - name: phishguard.slo
+    interval: 60s
+    rules:
+
+      # ── Availability SLO ───────────────────────────────────────────────────
+      # Fires if availability drops below 99% over the last hour.
+      - alert: AvailabilitySLOBreach
+        expr: |
+          (
+            sum(rate(phishguard_http_requests_total{status!~"5.."}[1h]))
+            /
+            sum(rate(phishguard_http_requests_total[1h]))
+          ) < 0.99
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PhishGuard availability SLO breach"
+          description: >
+            Availability is {{ humanizePercentage $value }} (SLO: 99%).
+            Investigate error rate and model status immediately.
