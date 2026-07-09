@@ -1,0 +1,82 @@
+# =============================================================================
+# Ingress — staging
+# =============================================================================
+#
+# Routes external HTTPS traffic to the phishguard Service.
+#
+# Prerequisites
+# ─────────────
+# 1. An Ingress controller must be installed (nginx-ingress is most common):
+#      kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+#
+# 2. cert-manager must be installed for automated TLS:
+#      kubectl apply -f https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml
+#
+# 3. A ClusterIssuer must exist (see k8s/scripts/create-cluster-issuer.sh).
+#
+# 4. Update the host field below to your actual domain.
+#
+# TLS flow
+# ─────────
+# External → :443 → Ingress (TLS termination) → :80 → Service → :5000 → Pod
+#
+# The cert-manager annotation triggers automatic certificate provisioning
+# from Let's Encrypt.  The `letsencrypt-staging` issuer uses LE's staging
+# CA (no rate limits, but not trusted by browsers) — switch to
+# `letsencrypt-prod` for production.
+# =============================================================================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: phishguard
+  namespace: phishguard
+  labels:
+    app.kubernetes.io/name: phishguard
+    app.kubernetes.io/component: ingress
+  annotations:
+    # Use nginx ingress controller
+    kubernetes.io/ingress.class: nginx
+
+    # cert-manager: automatically provision TLS certificate from Let's Encrypt
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+
+    # Redirect all HTTP → HTTPS
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+
+    # Request size limit — prevents body > 1 MB (max batch: 50 URLs × ~200 bytes)
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+
+    # Timeouts matching gunicorn config
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "65"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "65"
+
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options "SAMEORIGIN" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+
+    # Rate limiting — 30 req/min per IP on the API endpoints
+    nginx.ingress.kubernetes.io/limit-rps: "30"
+
+spec:
+  tls:
+    - hosts:
+        - staging.phishguard.yourdomain.com    # ← replace with your domain
+      secretName: phishguard-staging-tls       # cert-manager writes cert here
+
+  rules:
+    - host: staging.phishguard.yourdomain.com  # ← replace with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: phishguard
+                port:
+                  name: http

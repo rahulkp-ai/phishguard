@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: phishguard-model-pvc
+  namespace: phishguard
+spec:
+  accessModes:
+    - ReadWriteMany    # required for 3+ replicas to mount simultaneously
+  storageClassName: efs-sc    # AWS EFS — replace with your cloud provider:
+                               # GCP: standard-rwx (Filestore)
+                               # Azure: azurefile-premium
+                               # Generic: nfs (requires NFS provisioner)
+  resources:
+    requests:
+      storage: 5Gi    # more headroom for model versioning in production

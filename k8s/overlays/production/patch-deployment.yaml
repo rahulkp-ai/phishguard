@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phishguard
+  namespace: phishguard
+spec:
+  replicas: 3    # one per availability zone for HA
+  template:
+    spec:
+      containers:
+        - name: phishguard
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"    # 1 full vCPU
+              memory: "1Gi"
+          env:
+            - name: WEB_CONCURRENCY
+              value: "5"      # (2 × 2 vCPU) + 1 for prod nodes
+            - name: LOG_LEVEL
+              value: "warning"    # only warnings/errors in prod — reduces log volume

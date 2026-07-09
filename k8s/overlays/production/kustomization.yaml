@@ -1,0 +1,49 @@
+# =============================================================================
+# Production Overlay
+# =============================================================================
+#
+# Changes from base:
+#   - 3 replicas minimum (high availability across 3 AZs)
+#   - Higher resource requests/limits
+#   - HPA min=3, max=10
+#   - Ingress on phishguard.yourdomain.com with Let's Encrypt prod TLS
+#   - Image pinned to exact digest (not :latest) for reproducibility
+# =============================================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: phishguard
+
+bases:
+  - ../../base
+
+patches:
+  - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: phishguard
+
+  - path: patch-hpa.yaml
+    target:
+      kind: HorizontalPodAutoscaler
+      name: phishguard
+
+  - path: patch-pvc.yaml
+    target:
+      kind: PersistentVolumeClaim
+      name: phishguard-model-pvc
+
+resources:
+  - ingress.yaml
+
+images:
+  - name: ghcr.io/YOUR_GITHUB_USERNAME/phishguard
+    # CI/CD pins this to an exact image digest before applying:
+    #   kustomize edit set image \
+    #     ghcr.io/.../phishguard@sha256:abc123...
+    # This guarantees the exact binary that passed tests is what's running.
+    newTag: latest
+
+commonLabels:
+  app.kubernetes.io/environment: production

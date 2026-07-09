@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phishguard
+  namespace: phishguard
+spec:
+  replicas: 2
+  template:
+    spec:
+      containers:
+        - name: phishguard
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

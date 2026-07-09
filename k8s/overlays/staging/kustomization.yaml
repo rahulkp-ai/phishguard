@@ -1,0 +1,42 @@
+# =============================================================================
+# Staging Overlay — pre-production environment
+# =============================================================================
+#
+# Changes from base:
+#   - 2 replicas (mirrors prod load pattern)
+#   - Moderate resource limits
+#   - HPA min=2, max=4
+#   - Ingress on staging.phishguard.yourdomain.com
+#   - TLS via cert-manager (Let's Encrypt staging)
+# =============================================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: phishguard
+
+bases:
+  - ../../base
+
+patches:
+  - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: phishguard
+
+  - path: patch-hpa.yaml
+    target:
+      kind: HorizontalPodAutoscaler
+      name: phishguard
+
+resources:
+  - ingress.yaml
+
+images:
+  - name: ghcr.io/YOUR_GITHUB_USERNAME/phishguard
+    # CI updates this tag to the exact SHA being deployed:
+    #   kustomize edit set image ghcr.io/.../phishguard:sha-abc1234
+    newTag: latest
+
+commonLabels:
+  app.kubernetes.io/environment: staging

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: phishguard-model-pvc
+  namespace: phishguard
+spec:
+  # minikube / kind only support ReadWriteOnce — fine for 1 replica in dev
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: standard

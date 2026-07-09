@@ -1,0 +1,25 @@
+# Strategic merge patch — only the fields listed here are changed.
+# Everything else in the base Deployment remains unchanged.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phishguard
+  namespace: phishguard
+spec:
+  replicas: 1    # save resources on a laptop
+  template:
+    spec:
+      containers:
+        - name: phishguard
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "300Mi"
+          env:
+            - name: LOG_LEVEL
+              value: "debug"    # verbose logging in dev
+            - name: WEB_CONCURRENCY
+              value: "1"        # 1 gunicorn worker in dev

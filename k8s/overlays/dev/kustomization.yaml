@@ -1,0 +1,49 @@
+# =============================================================================
+# Dev Overlay — local minikube / kind cluster
+# =============================================================================
+#
+# Changes from base:
+#   - 1 replica (saves resources on a laptop)
+#   - Lower resource requests/limits
+#   - HPA min=1, max=2
+#   - storageClassName: standard (minikube default)
+#   - Image: uses :dev tag built locally
+#   - No Ingress (use `kubectl port-forward` to access)
+# =============================================================================
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: phishguard
+
+bases:
+  - ../../base
+
+patches:
+  # Patch replicas and resources for local development
+  - path: patch-deployment.yaml
+    target:
+      kind: Deployment
+      name: phishguard
+
+  # Patch HPA for dev (1–2 replicas)
+  - path: patch-hpa.yaml
+    target:
+      kind: HorizontalPodAutoscaler
+      name: phishguard
+
+  # Patch PVC to use minikube's standard StorageClass
+  - path: patch-pvc.yaml
+    target:
+      kind: PersistentVolumeClaim
+      name: phishguard-model-pvc
+
+# Override the image tag for local dev builds
+images:
+  - name: ghcr.io/YOUR_GITHUB_USERNAME/phishguard
+    newName: phishguard     # local image name (built with `make docker-build`)
+    newTag: dev
+
+# Add dev-specific labels to all resources
+commonLabels:
+  app.kubernetes.io/environment: dev

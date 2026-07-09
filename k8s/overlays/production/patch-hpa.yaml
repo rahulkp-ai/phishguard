@@ -1,0 +1,8 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: phishguard
+  namespace: phishguard
+spec:
+  minReplicas: 3     # always 3 pods — one per AZ — for HA
+  maxReplicas: 10    # handles 5× normal traffic before load shedding

@@ -1,0 +1,56 @@
+# =============================================================================
+# Ingress — production
+# =============================================================================
+#
+# Identical structure to staging/ingress.yaml with three differences:
+#   1. Host: phishguard.yourdomain.com (no staging. prefix)
+#   2. cert-manager issuer: letsencrypt-prod (trusted CA, rate-limited)
+#   3. Stricter rate limits: 10 req/min per IP (vs 30 in staging)
+# =============================================================================
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: phishguard
+  namespace: phishguard
+  labels:
+    app.kubernetes.io/name: phishguard
+    app.kubernetes.io/component: ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod    # trusted cert
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "65"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "65"
+
+    # Tighter rate limit in production — prevents API abuse
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    nginx.ingress.kubernetes.io/limit-connections: "20"
+
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options "SAMEORIGIN" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+spec:
+  tls:
+    - hosts:
+        - phishguard.yourdomain.com        # ← replace with your domain
+      secretName: phishguard-prod-tls
+
+  rules:
+    - host: phishguard.yourdomain.com      # ← replace with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: phishguard
+                port:
+                  name: http
