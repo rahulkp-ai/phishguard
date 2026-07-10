@@ -1,0 +1,60 @@
+# =============================================================================
+# Render Blueprint — render.yaml
+# =============================================================================
+#
+# Render reads this file from your repo root and provisions the service
+# automatically. This is "Infrastructure as Code" for Render.
+#
+# Deploy steps:
+#   1. Push this file to your repo root as render.yaml
+#   2. Go to dashboard.render.com → New → Blueprint
+#   3. Connect your GitHub repo — Render reads this file and creates the service
+#
+# Free tier facts (verified June 2026):
+#   - 750 hours/month compute (enough for one always-on service)
+#   - 512 MB RAM, shared CPU
+#   - Spins down after 15 min inactivity → 30–60s cold start on next request
+#   - No credit card required
+#   - Custom domain: yes (free)
+#   - TLS: automatic (free)
+#   - 100 GB bandwidth/month
+# =============================================================================
+
+services:
+  - type: web
+    name: phishguard
+    runtime: docker
+
+    # Path to the Dockerfile from the repo root
+    dockerfilePath: ./deploy/render/Dockerfile.render
+
+    # Render injects PORT automatically — gunicorn.conf.py reads it
+    # No need to set PORT here
+
+    # Free tier — 512 MB RAM, shared CPU
+    plan: free
+
+    # Health check path — Render checks this before marking deploy successful
+    healthCheckPath: /api/health
+
+    # Auto-deploy on every push to main
+    branch: main
+    autoDeploy: true
+
+    envVars:
+      # Render generates a random value for SECRET_KEY if you use generateValue.
+      # This is the correct pattern — never hardcode secrets in render.yaml.
+      - key: SECRET_KEY
+        generateValue: true
+
+      - key: MODEL_PATH
+        value: /app/models/phishing_model.joblib
+
+      - key: WEB_CONCURRENCY
+        value: "1"          # only 1 worker on free tier (512 MB RAM)
+
+      - key: LOG_LEVEL
+        value: info
+
+      - key: GUNICORN_TIMEOUT
+        value: "120"        # longer timeout — free tier CPU is slow
