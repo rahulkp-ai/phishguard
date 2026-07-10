@@ -2,20 +2,20 @@
 
 ## Platform Comparison (verified June 2026)
 
-| | Render | GCP Cloud Run |
-|---|---|---|
-| **Cost** | $0 (750 hrs/month) | $0 (2M req/month) |
-| **Credit card** | No | Yes (not charged) |
-| **Always-on** | No (spins down after 15 min) | No (scales to zero) |
-| **Cold start** | 30–60 seconds | 2–8 seconds |
-| **RAM** | 512 MB | 512 MB |
-| **CPU** | Shared | 1 vCPU (during request) |
-| **Deploy method** | Git push via Blueprint | GitHub Actions → Artifact Registry |
-| **Auto-deploy** | Yes (push to main) | Yes (via workflow) |
-| **Custom domain** | Yes (free) | Yes (free) |
-| **TLS** | Automatic | Automatic |
-| **Model strategy** | Baked into image | Baked into image |
-| **Best for** | Portfolio demos, no card setup | Production-quality showcase |
+|                    | Render                         | GCP Cloud Run                      |
+| ------------------ | ------------------------------ | ---------------------------------- |
+| **Cost**           | $0 (750 hrs/month)             | $0 (2M req/month)                  |
+| **Credit card**    | No                             | Yes (not charged)                  |
+| **Always-on**      | No (spins down after 15 min)   | No (scales to zero)                |
+| **Cold start**     | 30–60 seconds                  | 2–8 seconds                        |
+| **RAM**            | 512 MB                         | 512 MB                             |
+| **CPU**            | Shared                         | 1 vCPU (during request)            |
+| **Deploy method**  | Git push via Blueprint         | GitHub Actions → Artifact Registry |
+| **Auto-deploy**    | Yes (push to main)             | Yes (via workflow)                 |
+| **Custom domain**  | Yes (free)                     | Yes (free)                         |
+| **TLS**            | Automatic                      | Automatic                          |
+| **Model strategy** | Baked into image               | Baked into image                   |
+| **Best for**       | Portfolio demos, no card setup | Production-quality showcase        |
 
 ### Which should you use?
 
@@ -35,6 +35,7 @@ the architecture section. They use the same Docker image.
 ## Option A: Render (Fastest — No Card Required)
 
 ### Prerequisites
+
 - GitHub account with this repo pushed
 - Render account at render.com (email signup, no card)
 
@@ -75,6 +76,7 @@ curl $URL/api/health
 # Test a phishing URL
 curl -X POST $URL/api/predict \
   -H "Content-Type: application/json" \
+
   -d '{"url": "http://paypal-verify.account-secure.tk/login"}'
 ```
 
@@ -104,6 +106,7 @@ automatically — your service stays warm and responds instantly.
 ## Option B: GCP Cloud Run ($0/month with card on file)
 
 ### Free tier limits that matter
+
 - **2,000,000 requests/month** — your entire portfolio lifetime of traffic
 - **180,000 vCPU-seconds/month** — ~50 hours of active compute
 - **360,000 GB-seconds/month** — ~100 hours at 512 MB RAM
@@ -167,6 +170,7 @@ bash deploy/gcp/setup-wif.sh
 ```
 
 Copy the three output values and add them as GitHub Secrets:
+
 - `GCP_PROJECT_ID`
 - `GCP_WORKLOAD_IDENTITY`
 - `GCP_SERVICE_ACCOUNT`
@@ -257,11 +261,11 @@ open https://console.cloud.google.com/billing
 
 At portfolio traffic (< 10,000 requests/month):
 
-| Platform | Monthly cost |
-|----------|-------------|
-| Render | **$0.00** |
-| GCP Cloud Run | **$0.00** |
-| GCP Artifact Registry | **$0.00** (< 0.5 GB) |
-| GCP Secret Manager | **$0.00** (< 6 versions) |
-| GitHub Actions | **$0.00** (public repo) |
-| **Total** | **$0.00** |
+| Platform              | Monthly cost             |
+| --------------------- | ------------------------ |
+| Render                | **$0.00**                |
+| GCP Cloud Run         | **$0.00**                |
+| GCP Artifact Registry | **$0.00** (< 0.5 GB)     |
+| GCP Secret Manager    | **$0.00** (< 6 versions) |
+| GitHub Actions        | **$0.00** (public repo)  |
+| **Total**             | **$0.00**                |
