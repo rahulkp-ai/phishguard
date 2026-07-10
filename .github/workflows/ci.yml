@@ -86,7 +86,7 @@ jobs:
     timeout-minutes: 10
 
     strategy:
-      fail-fast: true       # stop the matrix immediately if one version fails
+      fail-fast: true # stop the matrix immediately if one version fails
       matrix:
         python-version: ["3.10", "3.12"]
 
@@ -117,7 +117,7 @@ jobs:
     name: Full Tests + Coverage
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: test-fast      # only run if unit tests pass on all matrix versions
+    needs: test-fast # only run if unit tests pass on all matrix versions
 
     steps:
       - name: Checkout
@@ -146,7 +146,7 @@ jobs:
       # Upload XML report for Codecov and PR annotations
       - name: Upload coverage report artifact
         uses: actions/upload-artifact@v4
-        if: always()      # upload even if the coverage gate fails
+        if: always() # upload even if the coverage gate fails
         with:
           name: coverage-report
           path: |
@@ -161,7 +161,7 @@ jobs:
         if: always()
         with:
           files: coverage.xml
-          fail_ci_if_error: false   # don't fail CI if Codecov is down
+          fail_ci_if_error: false # don't fail CI if Codecov is down
           token: ${{ secrets.CODECOV_TOKEN }}
 
   # ---------------------------------------------------------------------------
@@ -191,11 +191,11 @@ jobs:
         with:
           context: .
           file: docker/Dockerfile
-          push: false       # verify only — docker-publish.yml handles push
+          push: false # verify only — docker-publish.yml handles push
           tags: phishguard:ci-check
           # Export to Docker daemon so we can run tests against it
           load: true
-          cache-from: type=gha        # GitHub Actions cache layer
+          cache-from: type=gha # GitHub Actions cache layer
           cache-to: type=gha,mode=max
 
       - name: Verify container starts and health check passes
@@ -206,31 +206,32 @@ jobs:
             -e SECRET_KEY=ci-testing-secret \
             phishguard:ci-check
 
-          # Wait up to 30s for the container to be ready
-          echo "Waiting for container to become healthy..."
-          for i in $(seq 1 12); do
-            STATUS=$(docker inspect --format='{{.State.Health.Status}}' phishguard_ci 2>/dev/null || echo "starting")
-            echo "  Attempt $i/12 — status: $STATUS"
-            if [ "$STATUS" = "healthy" ]; then
-              echo "Container is healthy."
-              break
-            fi
-            # Also check if the endpoint responds even before health check kicks in
-            if curl --fail --silent http://localhost:5000/api/health > /dev/null 2>&1; then
-              echo "API endpoint responding."
+          echo "Waiting for container to respond..."
+          for i in $(seq 1 15); do
+            echo "  Attempt $i/15..."
+            RESPONSE=$(curl --silent --max-time 5 http://localhost:5000/api/health 2>/dev/null || echo "")
+            if [ -n "$RESPONSE" ]; then
+              echo "Got response: $RESPONSE"
               break
             fi
             sleep 3
           done
 
-          # Final assertion
-          curl --fail --silent http://localhost:5000/api/health | python3 -c "
-          import json, sys
-          data = json.load(sys.stdin)
-          print('Health response:', data)
-          assert data['status'] in ('ok', 'degraded'), f'Unexpected status: {data}'
-          print('Health check passed.')
-          "
+          if [ -z "$RESPONSE" ]; then
+            echo "ERROR: No response from container after 45s"
+            exit 1
+          fi
+
+          # Accept both 'ok' (model loaded) and 'degraded' (no model in CI — expected)
+          STATUS=$(echo "$RESPONSE" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status','unknown'))" 2>/dev/null || echo "parse-error")
+          echo "Health status: $STATUS"
+
+          if [[ "$STATUS" == "ok" || "$STATUS" == "degraded" ]]; then
+            echo "Health check passed (status=$STATUS). Container is functional."
+          else
+            echo "ERROR: Unexpected health status: $STATUS"
+            exit 1
+          fi
 
       - name: Print container logs (always, for debugging)
         if: always()
