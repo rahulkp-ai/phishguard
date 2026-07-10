@@ -13,10 +13,10 @@ import json
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Health endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestHealth:
     def test_health_ok(self, client):
@@ -35,6 +35,7 @@ class TestHealth:
 # Single-predict endpoint
 # ---------------------------------------------------------------------------
 
+
 class TestPredict:
     def test_predict_returns_200(self, client):
         resp = client.post(
@@ -52,8 +53,14 @@ class TestPredict:
         )
         data = resp.get_json()
         required_keys = {
-            "url", "is_phishing", "label", "phishing_pct",
-            "legit_pct", "confidence", "risk_level", "features",
+            "url",
+            "is_phishing",
+            "label",
+            "phishing_pct",
+            "legit_pct",
+            "confidence",
+            "risk_level",
+            "features",
             "analysis_time_ms",
         }
         assert required_keys.issubset(data.keys())
@@ -120,11 +127,14 @@ class TestPredict:
         )
         assert resp.status_code == 400
 
-    @pytest.mark.parametrize("dangerous", [
-        "file:///etc/passwd",
-        "data:text/html,<script>alert(1)</script>",
-        "javascript:alert(1)",
-    ])
+    @pytest.mark.parametrize(
+        "dangerous",
+        [
+            "file:///etc/passwd",
+            "data:text/html,<script>alert(1)</script>",
+            "javascript:alert(1)",
+        ],
+    )
     def test_predict_dangerous_scheme_returns_400(self, client, dangerous):
         resp = client.post(
             "/api/predict",
@@ -137,6 +147,7 @@ class TestPredict:
 # ---------------------------------------------------------------------------
 # Batch endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestBatch:
     def test_batch_returns_200(self, client):
@@ -187,6 +198,7 @@ class TestBatch:
 # ---------------------------------------------------------------------------
 # Page routes
 # ---------------------------------------------------------------------------
+
 
 class TestPages:
     def test_index_returns_200(self, client):

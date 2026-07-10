@@ -52,11 +52,11 @@ Env = Literal["development", "production", "testing"]
 # Processors that run on every log record regardless of environment.
 # They add timestamps, log level, and the logger name to every event.
 _SHARED_PROCESSORS: list = [
-    structlog.contextvars.merge_contextvars,          # merges request_id etc.
-    structlog.stdlib.add_logger_name,                 # adds "logger" key
-    structlog.stdlib.add_log_level,                   # adds "level" key
+    structlog.contextvars.merge_contextvars,  # merges request_id etc.
+    structlog.stdlib.add_logger_name,  # adds "logger" key
+    structlog.stdlib.add_log_level,  # adds "level" key
     structlog.stdlib.PositionalArgumentsFormatter(),  # handles %s-style args
-    structlog.processors.TimeStamper(fmt="iso"),      # ISO-8601 timestamp
+    structlog.processors.TimeStamper(fmt="iso"),  # ISO-8601 timestamp
     structlog.processors.StackInfoRenderer(),
 ]
 

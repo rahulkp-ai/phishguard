@@ -16,14 +16,12 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 from phishguard.logging_config import configure_logging
-
 
 # ---------------------------------------------------------------------------
 # configure_logging idempotency
 # ---------------------------------------------------------------------------
+
 
 class TestConfigureLogging:
     def test_dev_config_does_not_raise(self):
@@ -43,6 +41,7 @@ class TestConfigureLogging:
 # ---------------------------------------------------------------------------
 # X-Request-ID header propagation
 # ---------------------------------------------------------------------------
+
 
 class TestRequestId:
     def test_health_has_request_id_header(self, client):

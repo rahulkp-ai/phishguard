@@ -83,34 +83,34 @@ KNOWN_LEGITIMATE: frozenset[str] = frozenset(
 
 # Human-readable names — one per extracted feature, in order.
 FEATURE_NAMES: list[str] = [
-    "has_ip",               # 0
-    "url_length",           # 1
-    "has_shortener",        # 2
-    "has_at_symbol",        # 3
-    "double_slash_redirect",# 4
-    "hyphen_in_domain",     # 5
-    "subdomain_depth",      # 6
-    "https_in_domain_text", # 7
-    "digit_ratio",          # 8
-    "special_char_count",   # 9
-    "slash_count",          # 10
-    "dot_count",            # 11
+    "has_ip",  # 0
+    "url_length",  # 1
+    "has_shortener",  # 2
+    "has_at_symbol",  # 3
+    "double_slash_redirect",  # 4
+    "hyphen_in_domain",  # 5
+    "subdomain_depth",  # 6
+    "https_in_domain_text",  # 7
+    "digit_ratio",  # 8
+    "special_char_count",  # 9
+    "slash_count",  # 10
+    "dot_count",  # 11
     "suspicious_keywords",  # 12
-    "domain_length",        # 13
-    "has_exe_extension",    # 14
-    "hyphen_count",         # 15
-    "encoded_chars",        # 16
-    "path_depth",           # 17
-    "query_length",         # 18
-    "domain_entropy",       # 19
-    "suspicious_tld",       # 20
-    "brand_in_subdomain",   # 21
-    "non_standard_port",    # 22
-    "digit_in_domain",      # 23
-    "url_entropy",          # 24
-    "repeated_chars",       # 25
+    "domain_length",  # 13
+    "has_exe_extension",  # 14
+    "hyphen_count",  # 15
+    "encoded_chars",  # 16
+    "path_depth",  # 17
+    "query_length",  # 18
+    "domain_entropy",  # 19
+    "suspicious_tld",  # 20
+    "brand_in_subdomain",  # 21
+    "non_standard_port",  # 22
+    "digit_in_domain",  # 23
+    "url_entropy",  # 24
+    "repeated_chars",  # 25
     "dangerous_extension",  # 26
-    "subdomain_count",      # 27
+    "subdomain_count",  # 27
 ]
 
 NUM_FEATURES: int = len(FEATURE_NAMES)  # 28
@@ -119,6 +119,7 @@ NUM_FEATURES: int = len(FEATURE_NAMES)  # 28
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _entropy(s: str) -> float:
     """Shannon entropy of a string."""
@@ -146,6 +147,7 @@ def _is_known_legit(domain: str) -> bool:
 # graded signals return intermediate values to avoid hard thresholding.
 # ---------------------------------------------------------------------------
 
+
 def _has_ip(url: str) -> float:
     pattern = r"(([01]?\d\d?|2[0-4]\d|25[0-5])\.){3}([01]?\d\d?|2[0-4]\d|25[0-5])"
     return 1.0 if re.search(pattern, url) else 0.0
@@ -156,8 +158,8 @@ def _url_length(url: str) -> float:
     if length < 100:
         return 0.0
     if length < 190:
-        return 0.3   # long but plausible (e.g. deep GitHub path)
-    return 1.0       # very long → suspicious
+        return 0.3  # long but plausible (e.g. deep GitHub path)
+    return 1.0  # very long → suspicious
 
 
 def _has_shortener(url: str) -> float:
@@ -225,9 +227,21 @@ def _dot_count(url: str) -> float:
 
 def _suspicious_keywords(url: str) -> float:
     words = [
-        "login", "secure", "account", "verify", "update",
-        "password", "confirm", "support", "billing", "suspend",
-        "unusual", "alert", "validation", "signin", "recover",
+        "login",
+        "secure",
+        "account",
+        "verify",
+        "update",
+        "password",
+        "confirm",
+        "support",
+        "billing",
+        "suspend",
+        "unusual",
+        "alert",
+        "validation",
+        "signin",
+        "recover",
     ]
     url_lower = url.lower()
     hits = sum(1 for w in words if w in url_lower)
@@ -290,8 +304,18 @@ def _domain_entropy(domain: str) -> float:
 
 def _suspicious_tld(domain: str) -> float:
     suspicious_tlds = {
-        ".tk", ".ml", ".ga", ".cf", ".gq", ".xyz", ".top",
-        ".click", ".link", ".online", ".site", ".biz",
+        ".tk",
+        ".ml",
+        ".ga",
+        ".cf",
+        ".gq",
+        ".xyz",
+        ".top",
+        ".click",
+        ".link",
+        ".online",
+        ".site",
+        ".biz",
     }
     domain_lower = domain.lower()
     return 1.0 if any(domain_lower.endswith(t) for t in suspicious_tlds) else 0.0
@@ -301,8 +325,16 @@ def _brand_in_subdomain(url: str) -> float:
     parsed = urlparse(url)
     domain = parsed.netloc.lower()
     brands = [
-        "paypal", "google", "amazon", "apple", "microsoft",
-        "facebook", "netflix", "instagram", "twitter", "ebay",
+        "paypal",
+        "google",
+        "amazon",
+        "apple",
+        "microsoft",
+        "facebook",
+        "netflix",
+        "instagram",
+        "twitter",
+        "ebay",
     ]
     parts = domain.split(".")
     if len(parts) > 2:
@@ -366,6 +398,7 @@ def _subdomain_count(url: str) -> float:
 # Public API
 # ---------------------------------------------------------------------------
 
+
 def extract_features(url: str) -> list[float]:
     """
     Extract 28 URL features and return them as a list of floats.
@@ -389,37 +422,37 @@ def extract_features(url: str) -> list[float]:
     known = _is_known_legit(domain)
 
     features = [
-        _has_ip(url),                                         # 0  has_ip
-        0.0 if known else _url_length(url),                   # 1  url_length
-        _has_shortener(url),                                  # 2  has_shortener
-        _has_at_symbol(url),                                  # 3  has_at_symbol
-        _double_slash_redirect(url),                          # 4  double_slash_redirect
-        _hyphen_in_domain(domain),                            # 5  hyphen_in_domain
-        _subdomain_depth(domain),                             # 6  subdomain_depth
-        _https_in_domain_text(domain),                        # 7  https_in_domain_text
-        0.0 if known else _digit_ratio(url),                  # 8  digit_ratio
-        0.0 if known else _special_char_count(url),           # 9  special_char_count
-        0.0 if known else _slash_count(url),                  # 10 slash_count
-        _dot_count(url),                                      # 11 dot_count
-        0.0 if known else _suspicious_keywords(url),          # 12 suspicious_keywords
-        _domain_length(domain),                               # 13 domain_length
-        _has_exe(url),                                        # 14 has_exe_extension
-        _hyphen_count(url),                                   # 15 hyphen_count
-        _encoded_chars(url),                                  # 16 encoded_chars
-        0.0 if known else _path_depth(url),                   # 17 path_depth
-        0.0 if known else _query_length(url),                 # 18 query_length
-        _domain_entropy(domain),                              # 19 domain_entropy
-        _suspicious_tld(domain),                              # 20 suspicious_tld
-        _brand_in_subdomain(url),                             # 21 brand_in_subdomain
-        _non_standard_port(url),                              # 22 non_standard_port
-        _digit_in_domain(domain),                             # 23 digit_in_domain
-        0.0 if known else _url_entropy(url),                  # 24 url_entropy
-        _repeated_chars(url),                                 # 25 repeated_chars
-        _dangerous_extension(url),                            # 26 dangerous_extension
-        _subdomain_count(url),                                # 27 subdomain_count
+        _has_ip(url),  # 0  has_ip
+        0.0 if known else _url_length(url),  # 1  url_length
+        _has_shortener(url),  # 2  has_shortener
+        _has_at_symbol(url),  # 3  has_at_symbol
+        _double_slash_redirect(url),  # 4  double_slash_redirect
+        _hyphen_in_domain(domain),  # 5  hyphen_in_domain
+        _subdomain_depth(domain),  # 6  subdomain_depth
+        _https_in_domain_text(domain),  # 7  https_in_domain_text
+        0.0 if known else _digit_ratio(url),  # 8  digit_ratio
+        0.0 if known else _special_char_count(url),  # 9  special_char_count
+        0.0 if known else _slash_count(url),  # 10 slash_count
+        _dot_count(url),  # 11 dot_count
+        0.0 if known else _suspicious_keywords(url),  # 12 suspicious_keywords
+        _domain_length(domain),  # 13 domain_length
+        _has_exe(url),  # 14 has_exe_extension
+        _hyphen_count(url),  # 15 hyphen_count
+        _encoded_chars(url),  # 16 encoded_chars
+        0.0 if known else _path_depth(url),  # 17 path_depth
+        0.0 if known else _query_length(url),  # 18 query_length
+        _domain_entropy(domain),  # 19 domain_entropy
+        _suspicious_tld(domain),  # 20 suspicious_tld
+        _brand_in_subdomain(url),  # 21 brand_in_subdomain
+        _non_standard_port(url),  # 22 non_standard_port
+        _digit_in_domain(domain),  # 23 digit_in_domain
+        0.0 if known else _url_entropy(url),  # 24 url_entropy
+        _repeated_chars(url),  # 25 repeated_chars
+        _dangerous_extension(url),  # 26 dangerous_extension
+        _subdomain_count(url),  # 27 subdomain_count
     ]
 
-    assert len(features) == NUM_FEATURES, (
-        f"Feature count mismatch: expected {NUM_FEATURES}, got {len(features)}"
-    )
+    assert (
+        len(features) == NUM_FEATURES
+    ), f"Feature count mismatch: expected {NUM_FEATURES}, got {len(features)}"
     return features

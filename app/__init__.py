@@ -16,8 +16,10 @@ def create_app(config_class: type = Config) -> Flask:
     # ------------------------------------------------------------------
     from phishguard.logging_config import configure_logging  # noqa: PLC0415
 
-    env = "testing" if app.config.get("TESTING") else (
-        "development" if app.config.get("DEBUG") else "production"
+    env = (
+        "testing"
+        if app.config.get("TESTING")
+        else ("development" if app.config.get("DEBUG") else "production")
     )
     configure_logging(env=env)
 

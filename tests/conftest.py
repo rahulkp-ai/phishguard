@@ -14,20 +14,20 @@ Custom CLI options
 
 from __future__ import annotations
 
+import joblib
 import numpy as np
 import pandas as pd
 import pytest
-import joblib
 from sklearn.ensemble import RandomForestClassifier
 
 from app import create_app
 from app.config import TestingConfig
 from phishguard.features.extractor import FEATURE_NAMES, NUM_FEATURES
 
-
 # ---------------------------------------------------------------------------
 # Custom CLI option
 # ---------------------------------------------------------------------------
+
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -51,6 +51,7 @@ def pytest_collection_modifyitems(config, items):
 # Minimal model fixture
 # ---------------------------------------------------------------------------
 
+
 def _make_tiny_model(model_path):
     """Train a 5-tree Random Forest on 20 synthetic rows and save it."""
     rng = np.random.default_rng(42)
@@ -65,6 +66,7 @@ def _make_tiny_model(model_path):
 # ---------------------------------------------------------------------------
 # App fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def app(tmp_path):

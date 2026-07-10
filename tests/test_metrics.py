@@ -19,10 +19,10 @@ import pytest
 
 from phishguard.drift import DriftDetector
 
-
 # ---------------------------------------------------------------------------
 # /metrics endpoint
 # ---------------------------------------------------------------------------
+
 
 class TestMetricsEndpoint:
     def test_metrics_endpoint_returns_200(self, client):
@@ -34,7 +34,7 @@ class TestMetricsEndpoint:
         assert "text/plain" in resp.content_type
 
     def test_metrics_contains_http_requests_total(self, client):
-        client.get("/api/health")   # generate at least one request
+        client.get("/api/health")  # generate at least one request
         resp = client.get("/metrics")
         assert b"phishguard_http_requests_total" in resp.data
 
@@ -102,6 +102,7 @@ class TestMetricsEndpoint:
 # Prediction counter increments
 # ---------------------------------------------------------------------------
 
+
 class TestPredictionMetrics:
     def test_prediction_increments_counter(self, client):
         """Calling /api/predict should cause predictions_total to appear."""
@@ -145,6 +146,7 @@ class TestPredictionMetrics:
 # DriftDetector unit tests
 # ---------------------------------------------------------------------------
 
+
 class TestDriftDetector:
     """
     Unit tests for DriftDetector that use a fresh instance per test
@@ -156,7 +158,7 @@ class TestDriftDetector:
             baseline_rate=0.5,
             threshold=0.3,
             window_size=10,
-            alert_cooldown_s=0.0,   # no cooldown in tests
+            alert_cooldown_s=0.0,  # no cooldown in tests
         )
         defaults.update(kwargs)
         return DriftDetector(**defaults)
@@ -189,7 +191,7 @@ class TestDriftDetector:
         d = self._make_detector(window_size=3)
         d.record(True)
         d.record(True)
-        d.record(True)   # window: [1,1,1] → rate 1.0
+        d.record(True)  # window: [1,1,1] → rate 1.0
         d.record(False)
         d.record(False)
         d.record(False)  # window: [0,0,0] → rate 0.0 (old values evicted)
@@ -228,7 +230,7 @@ class TestDriftDetector:
         # Fill with balanced predictions → rate returns to ~0.5
         for _ in range(10):
             d.record(True)
-            d.record(False)   # alternating → still fills window with 50/50
+            d.record(False)  # alternating → still fills window with 50/50
         # After 10 more records the window is [1,0,1,0,1,0,1,0,1,0] → rate 0.5
         assert not d._drift_active
 

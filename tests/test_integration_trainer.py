@@ -30,6 +30,7 @@ pytestmark = pytest.mark.integration
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def synthetic_csv(tmp_path) -> Path:
     """
@@ -40,8 +41,8 @@ def synthetic_csv(tmp_path) -> Path:
     This gives the Random Forest something genuinely separable to learn.
     """
     rng = np.random.default_rng(42)
-    legit  = rng.uniform(0.0, 0.3, (100, NUM_FEATURES))
-    phish  = rng.uniform(0.7, 1.0, (100, NUM_FEATURES))
+    legit = rng.uniform(0.0, 0.3, (100, NUM_FEATURES))
+    phish = rng.uniform(0.7, 1.0, (100, NUM_FEATURES))
     X = np.vstack([legit, phish])
     y = np.array([0] * 100 + [1] * 100)
 
@@ -55,6 +56,7 @@ def synthetic_csv(tmp_path) -> Path:
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestTrainOutput:
     def test_model_file_is_created(self, synthetic_csv, tmp_path):
@@ -122,9 +124,7 @@ class TestTrainPredictions:
         model = joblib.load(model_path)
 
         # Build a clearly-phishing row (all features = 1.0)
-        X_phish = pd.DataFrame(
-            [[1.0] * NUM_FEATURES], columns=FEATURE_NAMES
-        )
+        X_phish = pd.DataFrame([[1.0] * NUM_FEATURES], columns=FEATURE_NAMES)
         pred = model.predict(X_phish)[0]
         assert pred == 1
 

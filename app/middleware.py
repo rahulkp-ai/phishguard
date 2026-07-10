@@ -69,7 +69,9 @@ def register_request_logging(app: Flask) -> None:
 
     @app.after_request
     def _after(response):
-        latency_ms = round((time.perf_counter() - g.get("request_start", time.perf_counter())) * 1000, 2)
+        latency_ms = round(
+            (time.perf_counter() - g.get("request_start", time.perf_counter())) * 1000, 2
+        )
         status = response.status_code
 
         # Echo the request ID back so callers can correlate client + server logs

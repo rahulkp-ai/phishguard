@@ -16,10 +16,10 @@ from phishguard.features.extractor import (
     extract_features,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def features_dict(url: str) -> dict[str, float]:
     return dict(zip(FEATURE_NAMES, extract_features(url)))
@@ -32,6 +32,7 @@ def phishing_score(url: str) -> float:
 # ---------------------------------------------------------------------------
 # Structural tests
 # ---------------------------------------------------------------------------
+
 
 def test_feature_count():
     """extract_features must return exactly NUM_FEATURES values."""
@@ -69,6 +70,7 @@ def test_all_values_in_unit_interval():
 # Known-legitimate sites — low phishing score
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "url",
     [
@@ -89,6 +91,7 @@ def test_legit_urls_low_score(url):
 # Known-phishing URLs — high phishing score
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.parametrize(
     "url",
     [
@@ -107,6 +110,7 @@ def test_phishing_urls_high_score(url):
 # ---------------------------------------------------------------------------
 # Individual feature correctness
 # ---------------------------------------------------------------------------
+
 
 def test_has_ip_detected():
     f = features_dict("http://192.168.1.1/login")
@@ -162,6 +166,7 @@ def test_clean_domain_no_https_text():
 # ---------------------------------------------------------------------------
 # Regression: dead features must no longer exist in FEATURE_NAMES
 # ---------------------------------------------------------------------------
+
 
 def test_no_dead_hex_in_path_feature():
     """hex_in_path was always 0 and was removed."""

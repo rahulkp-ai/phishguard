@@ -14,7 +14,6 @@ Targeted tests for uncovered branches in app/routes.py:
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -22,10 +21,10 @@ import pytest
 from app import create_app
 from app.config import TestingConfig
 
-
 # ---------------------------------------------------------------------------
 # Fixture: app with NO model file (model_path points to a non-existent file)
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def app_no_model(tmp_path):
@@ -39,6 +38,7 @@ def app_no_model(tmp_path):
 @pytest.fixture()
 def client_no_model(app_no_model):
     import app.routes as routes_module
+
     # Reset the module-level model cache so the no-model app doesn't
     # accidentally use a model loaded by a previous test.
     original = routes_module._model
@@ -50,6 +50,7 @@ def client_no_model(app_no_model):
 # ---------------------------------------------------------------------------
 # Model-not-found paths (503)
 # ---------------------------------------------------------------------------
+
 
 class TestModelNotFound:
     def test_predict_returns_503_when_model_missing(self, client_no_model):
@@ -78,6 +79,7 @@ class TestModelNotFound:
 # Unexpected exception in _analyse_url (500 path)
 # ---------------------------------------------------------------------------
 
+
 class TestAnalyseUrlException:
     def test_predict_returns_500_on_unexpected_exception(self, client):
         with patch(
@@ -98,18 +100,21 @@ class TestAnalyseUrlException:
 # Batch: per-item error handling (invalid URL inside a valid batch)
 # ---------------------------------------------------------------------------
 
+
 class TestBatchItemErrors:
     def test_invalid_url_in_batch_does_not_abort_batch(self, client):
         """A bad URL in the middle should produce an error entry, not a 400."""
         resp = client.post(
             "/api/batch",
-            data=json.dumps({
-                "urls": [
-                    "https://google.com",
-                    "",                       # ← invalid: empty
-                    "https://example.com",
-                ]
-            }),
+            data=json.dumps(
+                {
+                    "urls": [
+                        "https://google.com",
+                        "",  # ← invalid: empty
+                        "https://example.com",
+                    ]
+                }
+            ),
             content_type="application/json",
         )
         assert resp.status_code == 200
@@ -139,13 +144,17 @@ class TestBatchItemErrors:
             call_count += 1
             if call_count == 2:
                 raise RuntimeError("analysis exploded")
-            from app.routes import _analyse_url as real
             # We patched _analyse_url, so we need to call the original logic.
             # Simplest: return a fake result dict for non-exploding calls.
             return {
-                "url": url, "is_phishing": False, "label": "LEGITIMATE",
-                "phishing_pct": 10.0, "legit_pct": 90.0, "confidence": 90.0,
-                "risk_level": "SAFE", "features": {},
+                "url": url,
+                "is_phishing": False,
+                "label": "LEGITIMATE",
+                "phishing_pct": 10.0,
+                "legit_pct": 90.0,
+                "confidence": 90.0,
+                "risk_level": "SAFE",
+                "features": {},
             }
 
         with patch("app.routes._analyse_url", side_effect=side_effect):
@@ -164,6 +173,7 @@ class TestBatchItemErrors:
 # ---------------------------------------------------------------------------
 # URL validation edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestUrlValidationEdgeCases:
     def test_non_printable_chars_return_400(self, client):

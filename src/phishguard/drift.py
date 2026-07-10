@@ -52,7 +52,6 @@ For multi-threaded servers (gevent/uvicorn), wrap in a threading.Lock.
 
 from __future__ import annotations
 
-import logging
 import time
 from collections import deque
 
@@ -110,7 +109,7 @@ class DriftDetector:
         # Initialise Prometheus gauges with config values
         DRIFT_BASELINE.set(baseline_rate)
         DRIFT_DETECTED.set(0)
-        PHISHING_RATE.set(baseline_rate)   # start at baseline until window fills
+        PHISHING_RATE.set(baseline_rate)  # start at baseline until window fills
 
     # ------------------------------------------------------------------
     # Public API
@@ -187,7 +186,7 @@ class DriftDetector:
         """Emit a structured warning log, rate-limited by alert_cooldown_s."""
         now = time.monotonic()
         if now - self._last_alert_ts < self.alert_cooldown_s:
-            return   # suppress repeated alerts within the cooldown window
+            return  # suppress repeated alerts within the cooldown window
 
         self._last_alert_ts = now
 

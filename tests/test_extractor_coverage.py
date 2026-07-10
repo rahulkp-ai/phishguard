@@ -20,7 +20,6 @@ import pytest
 
 from phishguard.features.extractor import (
     FEATURE_NAMES,
-    NUM_FEATURES,
     _entropy,
     _get_root_domain,
     _is_known_legit,
@@ -37,6 +36,7 @@ def feat(url: str, name: str) -> float:
 # ---------------------------------------------------------------------------
 # _entropy helper
 # ---------------------------------------------------------------------------
+
 
 class TestEntropyHelper:
     def test_empty_string_returns_zero(self):
@@ -56,6 +56,7 @@ class TestEntropyHelper:
 # ---------------------------------------------------------------------------
 # _get_root_domain and _is_known_legit helpers
 # ---------------------------------------------------------------------------
+
 
 class TestRootDomain:
     def test_strips_www(self):
@@ -89,6 +90,7 @@ class TestIsKnownLegit:
 # url_length — three branches: 0.0 (<100), 0.3 (100–189), 1.0 (≥190)
 # ---------------------------------------------------------------------------
 
+
 class TestUrlLength:
     def test_short_url_returns_zero(self):
         assert feat("https://example.com/short", "url_length") == 0.0
@@ -113,6 +115,7 @@ class TestUrlLength:
 # digit_ratio — zero for empty string branch (covered via known-legit)
 # ---------------------------------------------------------------------------
 
+
 class TestDigitRatio:
     def test_no_digits_returns_zero(self):
         assert feat("https://abcdef.com/path", "digit_ratio") == 0.0
@@ -133,6 +136,7 @@ class TestDigitRatio:
 # special_char_count — three branches: 0.0 (≤5), 0.5 (6-10), 1.0 (>10)
 # ---------------------------------------------------------------------------
 
+
 class TestSpecialCharCount:
     def test_few_special_chars_returns_zero(self):
         assert feat("https://example.com/path?a=1&b=2", "special_char_count") == 0.0
@@ -152,6 +156,7 @@ class TestSpecialCharCount:
 # ---------------------------------------------------------------------------
 # path_depth — three branches: 0.0 (≤4), 0.3 (5–7), 1.0 (>7)
 # ---------------------------------------------------------------------------
+
 
 class TestPathDepth:
     def test_shallow_path_returns_zero(self):
@@ -174,12 +179,13 @@ class TestPathDepth:
 # query_length — three branches: 0.0 (<50), 0.3 (50–149), 1.0 (≥150)
 # ---------------------------------------------------------------------------
 
+
 class TestQueryLength:
     def test_short_query_returns_zero(self):
         assert feat("https://unknowndomain.com/path?q=short", "query_length") == 0.0
 
     def test_medium_query_returns_03(self):
-        url = "https://unknowndomain.com/path?" + "a=b&" * 15   # ~60 chars in query
+        url = "https://unknowndomain.com/path?" + "a=b&" * 15  # ~60 chars in query
         assert feat(url, "query_length") == 0.3
 
     def test_long_query_returns_1(self):
@@ -194,6 +200,7 @@ class TestQueryLength:
 # ---------------------------------------------------------------------------
 # domain_entropy — three branches: 0.0 (<3.2), 0.3 (3.2–3.8), 1.0 (≥3.9)
 # ---------------------------------------------------------------------------
+
 
 class TestDomainEntropy:
     def test_low_entropy_domain_returns_zero(self):
@@ -215,6 +222,7 @@ class TestDomainEntropy:
 # url_entropy — three branches: 0.0 (<4.0), 0.3 (4.0–4.5), 1.0 (≥4.6)
 # ---------------------------------------------------------------------------
 
+
 class TestUrlEntropy:
     def test_low_entropy_url_returns_zero(self):
         assert feat("https://aaaa.com/aaaa", "url_entropy") == 0.0
@@ -232,6 +240,7 @@ class TestUrlEntropy:
 # ---------------------------------------------------------------------------
 # non_standard_port — three branches: standard port, non-standard, invalid
 # ---------------------------------------------------------------------------
+
 
 class TestNonStandardPort:
     def test_standard_port_80_returns_zero(self):
@@ -251,14 +260,15 @@ class TestNonStandardPort:
 
     def test_invalid_port_string_returns_zero(self):
         # "example.com:notanumber" — the ValueError branch
-        from urllib.parse import urlparse
         from phishguard.features.extractor import _non_standard_port
+
         assert _non_standard_port("http://example.com:notanumber/path") == 0.0
 
 
 # ---------------------------------------------------------------------------
 # subdomain_depth — three branches
 # ---------------------------------------------------------------------------
+
 
 class TestSubdomainDepth:
     def test_no_subdomain_returns_zero(self):
@@ -274,6 +284,7 @@ class TestSubdomainDepth:
 # ---------------------------------------------------------------------------
 # slash_count, dot_count
 # ---------------------------------------------------------------------------
+
 
 class TestSlashAndDotCount:
     def test_few_slashes_returns_zero(self):
@@ -294,6 +305,7 @@ class TestSlashAndDotCount:
 # has_exe_extension
 # ---------------------------------------------------------------------------
 
+
 class TestHasExe:
     def test_exe_url_returns_1(self):
         assert feat("http://evil.com/malware.exe", "has_exe_extension") == 1.0
@@ -305,6 +317,7 @@ class TestHasExe:
 # ---------------------------------------------------------------------------
 # dangerous_extension
 # ---------------------------------------------------------------------------
+
 
 class TestDangerousExtension:
     @pytest.mark.parametrize("ext", [".bat", ".sh", ".cmd", ".vbs", ".ps1"])
@@ -323,6 +336,7 @@ class TestDangerousExtension:
 # subdomain_count — three branches
 # ---------------------------------------------------------------------------
 
+
 class TestSubdomainCount:
     def test_no_subdomain_returns_zero(self):
         assert feat("https://example.com/", "subdomain_count") == 0.0
@@ -338,6 +352,7 @@ class TestSubdomainCount:
 # hyphen_count (in domain, threshold > 3)
 # ---------------------------------------------------------------------------
 
+
 class TestHyphenCount:
     def test_few_hyphens_returns_zero(self):
         assert feat("https://my-site.com/", "hyphen_count") == 0.0
@@ -349,6 +364,7 @@ class TestHyphenCount:
 # ---------------------------------------------------------------------------
 # brand_in_subdomain
 # ---------------------------------------------------------------------------
+
 
 class TestBrandInSubdomain:
     def test_brand_in_subdomain_returns_1(self):
@@ -363,6 +379,7 @@ class TestBrandInSubdomain:
 # digit_in_domain
 # ---------------------------------------------------------------------------
 
+
 class TestDigitInDomain:
     def test_digit_in_domain_returns_1(self):
         assert feat("http://bank123.com/login", "digit_in_domain") == 1.0
@@ -374,6 +391,7 @@ class TestDigitInDomain:
 # ---------------------------------------------------------------------------
 # repeated_chars (four or more consecutive)
 # ---------------------------------------------------------------------------
+
 
 class TestRepeatedChars:
     def test_four_repeated_returns_1(self):
@@ -388,6 +406,7 @@ class TestRepeatedChars:
 # encoded_chars
 # ---------------------------------------------------------------------------
 
+
 class TestEncodedChars:
     def test_percent_in_domain_returns_1(self):
         assert feat("http://g%6Fgle.com/", "encoded_chars") == 1.0
@@ -400,6 +419,7 @@ class TestEncodedChars:
 # ---------------------------------------------------------------------------
 # suspicious_keywords — three branches: 0.0, 0.4, 1.0
 # ---------------------------------------------------------------------------
+
 
 class TestSuspiciousKeywords:
     def test_no_keywords_returns_zero(self):

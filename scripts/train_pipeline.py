@@ -94,7 +94,7 @@ else:
 _header(2, "Extracting features")
 t0 = time.perf_counter()
 
-from phishguard.data.builder import build_dataset
+from phishguard.data.builder import build_dataset  # noqa: E402
 
 df = build_dataset(PHISHING_TXT, LEGIT_TXT, DATASET_CSV)
 logger.info("Feature extraction complete in %.1fs  shape=%s", time.perf_counter() - t0, df.shape)
@@ -106,7 +106,7 @@ logger.info("Feature extraction complete in %.1fs  shape=%s", time.perf_counter(
 _header(3, "Training Random Forest")
 t0 = time.perf_counter()
 
-from phishguard.models.trainer import train
+from phishguard.models.trainer import train  # noqa: E402
 
 metrics = train(DATASET_CSV, MODEL_PATH)
 logger.info(

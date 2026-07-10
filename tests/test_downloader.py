@@ -27,7 +27,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 import requests
 
 from phishguard.data.downloader import (
@@ -49,6 +48,7 @@ def _mock_response(text: str = "", json_data=None, status_code: int = 200) -> Ma
 # ---------------------------------------------------------------------------
 # Regression test — the exact crash from production
 # ---------------------------------------------------------------------------
+
 
 class TestLoggingDoesNotCrash:
     """
@@ -102,9 +102,7 @@ class TestLoggingDoesNotCrash:
 
     @patch("phishguard.data.downloader._fetch_majestic_million")
     @patch("phishguard.data.downloader._fetch_tranco")
-    def test_legit_urls_success_path_logging_does_not_raise(
-        self, mock_tranco, mock_majestic
-    ):
+    def test_legit_urls_success_path_logging_does_not_raise(self, mock_tranco, mock_majestic):
         mock_majestic.return_value = ["google.com", "github.com"]
         mock_tranco.return_value = ["stackoverflow.com"]
 
@@ -115,9 +113,7 @@ class TestLoggingDoesNotCrash:
 
     @patch("phishguard.data.downloader._fetch_majestic_million")
     @patch("phishguard.data.downloader._fetch_tranco")
-    def test_legit_urls_failure_path_logging_does_not_raise(
-        self, mock_tranco, mock_majestic
-    ):
+    def test_legit_urls_failure_path_logging_does_not_raise(self, mock_tranco, mock_majestic):
         mock_majestic.side_effect = requests.ConnectionError("DNS failure")
         mock_tranco.side_effect = requests.Timeout("timeout")
 
@@ -128,6 +124,7 @@ class TestLoggingDoesNotCrash:
 # ---------------------------------------------------------------------------
 # Behavioural tests — correctness of dedup, capping, error isolation
 # ---------------------------------------------------------------------------
+
 
 class TestDownloadPhishingUrls:
     @patch("phishguard.data.downloader._fetch_openphish")
@@ -206,9 +203,7 @@ class TestDownloadLegitimateUrls:
 
     @patch("phishguard.data.downloader._fetch_majestic_million")
     @patch("phishguard.data.downloader._fetch_tranco")
-    def test_skips_remaining_sources_once_target_reached(
-        self, mock_tranco, mock_majestic
-    ):
+    def test_skips_remaining_sources_once_target_reached(self, mock_tranco, mock_majestic):
         mock_majestic.return_value = [f"site{i}.com" for i in range(10)]
 
         download_legitimate_urls(target=5)

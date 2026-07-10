@@ -18,7 +18,7 @@ from __future__ import annotations
 import csv
 import io
 import zipfile
-from typing import Callable
+from collections.abc import Callable
 
 import requests
 import structlog
@@ -28,13 +28,14 @@ logger = structlog.get_logger(__name__)
 # Default per-source caps to keep training time reasonable.
 _PHISHING_CAP = 50_000
 _LEGIT_CAP = 50_000
-_REQUEST_TIMEOUT_SHORT = 15   # seconds
-_REQUEST_TIMEOUT_LONG = 60    # seconds
+_REQUEST_TIMEOUT_SHORT = 15  # seconds
+_REQUEST_TIMEOUT_LONG = 60  # seconds
 
 
 # ---------------------------------------------------------------------------
 # Phishing URL sources
 # ---------------------------------------------------------------------------
+
 
 def _fetch_openphish() -> set[str]:
     r = requests.get("https://openphish.com/feed.txt", timeout=_REQUEST_TIMEOUT_SHORT)
@@ -106,10 +107,10 @@ def download_phishing_urls(cap: int = _PHISHING_CAP) -> set[str]:
     set[str]
     """
     sources: list[tuple[str, Callable[[], set[str]]]] = [
-        ("OpenPhish",          _fetch_openphish),
-        ("URLhaus",            _fetch_urlhaus),
-        ("PhishTank",          _fetch_phishtank),
-        ("Phishing.Database",  lambda: _fetch_phishing_database(cap)),
+        ("OpenPhish", _fetch_openphish),
+        ("URLhaus", _fetch_urlhaus),
+        ("PhishTank", _fetch_phishtank),
+        ("Phishing.Database", lambda: _fetch_phishing_database(cap)),
     ]
 
     all_urls: set[str] = set()
@@ -130,6 +131,7 @@ def download_phishing_urls(cap: int = _PHISHING_CAP) -> set[str]:
 # ---------------------------------------------------------------------------
 # Legitimate URL sources
 # ---------------------------------------------------------------------------
+
 
 def _fetch_majestic_million(target: int) -> list[str]:
     """Stream the Majestic Million CSV, stop after `target` domains."""
@@ -201,7 +203,7 @@ def download_legitimate_urls(target: int = _LEGIT_CAP) -> list[str]:
 
     sources: list[tuple[str, Callable[[int], list[str]]]] = [
         ("Majestic Million", _fetch_majestic_million),
-        ("Tranco",           _fetch_tranco),
+        ("Tranco", _fetch_tranco),
     ]
 
     for name, fetch_fn in sources:
@@ -216,7 +218,12 @@ def download_legitimate_urls(target: int = _LEGIT_CAP) -> list[str]:
                 if d not in existing:
                     existing.add(d)
                     domains.append(d)
-            logger.info("downloaded from source", source=name, added=len(domains) - before, total=len(domains))
+            logger.info(
+                "downloaded from source",
+                source=name,
+                added=len(domains) - before,
+                total=len(domains),
+            )
         except Exception as exc:  # noqa: BLE001
             logger.warning("source failed", source=name, error=str(exc))
 

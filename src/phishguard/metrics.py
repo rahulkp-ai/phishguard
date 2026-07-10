@@ -39,7 +39,6 @@ phishguard_feature_extraction_seconds  — histogram (feature extraction latency
 from __future__ import annotations
 
 from prometheus_client import Counter, Gauge, Histogram
-from prometheus_client import CollectorRegistry
 
 # ---------------------------------------------------------------------------
 # Use the default registry.

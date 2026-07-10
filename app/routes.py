@@ -44,6 +44,7 @@ _model = None
 # Model loading
 # ---------------------------------------------------------------------------
 
+
 def get_model():
     global _model  # noqa: PLW0603
     if _model is None:
@@ -51,8 +52,7 @@ def get_model():
         if not model_path.exists():
             MODEL_LOADED.set(0)
             raise FileNotFoundError(
-                f"Model not found at {model_path}. "
-                "Run: python scripts/train_pipeline.py"
+                f"Model not found at {model_path}. " "Run: python scripts/train_pipeline.py"
             )
         load_start = time.perf_counter()
         _model = joblib.load(model_path)
@@ -66,6 +66,7 @@ def get_model():
 # ---------------------------------------------------------------------------
 # Prediction logic
 # ---------------------------------------------------------------------------
+
 
 def _validate_url(raw: str) -> tuple[str, str | None]:
     """
@@ -132,14 +133,19 @@ def _analyse_url(url: str) -> dict:
     drift_detector.record(is_phishing=bool(prediction == 1))
 
     featured_keys = [
-        "has_ip", "url_length", "has_shortener", "has_at_symbol",
-        "suspicious_tld", "brand_in_subdomain", "encoded_chars",
-        "suspicious_keywords", "hyphen_count", "non_standard_port",
+        "has_ip",
+        "url_length",
+        "has_shortener",
+        "has_at_symbol",
+        "suspicious_tld",
+        "brand_in_subdomain",
+        "encoded_chars",
+        "suspicious_keywords",
+        "hyphen_count",
+        "non_standard_port",
     ]
     feature_detail = {
-        k: features[FEATURE_NAMES.index(k)]
-        for k in featured_keys
-        if k in FEATURE_NAMES
+        k: features[FEATURE_NAMES.index(k)] for k in featured_keys if k in FEATURE_NAMES
     }
 
     return {
@@ -158,6 +164,7 @@ def _analyse_url(url: str) -> dict:
 # Page routes
 # ---------------------------------------------------------------------------
 
+
 @main.route("/")
 def index():
     return render_template("index.html")
@@ -171,6 +178,7 @@ def about():
 # ---------------------------------------------------------------------------
 # API routes
 # ---------------------------------------------------------------------------
+
 
 @main.route("/api/predict", methods=["POST"])
 def predict():
@@ -249,16 +257,19 @@ def health():
     except Exception:  # noqa: BLE001
         model_loaded = False
 
-    return jsonify({
-        "status": "ok" if model_loaded else "degraded",
-        "model_loaded": model_loaded,
-        "num_features": current_app.config.get("NUM_FEATURES"),
-    })
+    return jsonify(
+        {
+            "status": "ok" if model_loaded else "degraded",
+            "model_loaded": model_loaded,
+            "num_features": current_app.config.get("NUM_FEATURES"),
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
 # Prometheus metrics scrape endpoint
 # ---------------------------------------------------------------------------
+
 
 @main.route("/metrics")
 def metrics():

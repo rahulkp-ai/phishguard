@@ -67,10 +67,11 @@ def train(
     y = df["label"]
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
+        X,
+        y,
         test_size=test_size,
         random_state=random_state,
-        stratify=y,          # preserve class balance in both splits
+        stratify=y,  # preserve class balance in both splits
     )
     logger.info("Train: %d rows  |  Test: %d rows", len(X_train), len(X_test))
 
@@ -80,7 +81,7 @@ def train(
         min_samples_leaf=min_samples_leaf,
         class_weight="balanced",
         random_state=random_state,
-        n_jobs=-1,           # use all CPU cores
+        n_jobs=-1,  # use all CPU cores
     )
 
     logger.info("Training Random Forest (%d trees, max_depth=%d)…", n_estimators, max_depth)
@@ -91,9 +92,7 @@ def train(
 
     accuracy = accuracy_score(y_test, y_pred)
     roc_auc = roc_auc_score(y_test, y_proba)
-    report = classification_report(
-        y_test, y_pred, target_names=["Legitimate", "Phishing"]
-    )
+    report = classification_report(y_test, y_pred, target_names=["Legitimate", "Phishing"])
 
     logger.info("Accuracy : %.4f", accuracy)
     logger.info("ROC-AUC  : %.4f", roc_auc)
