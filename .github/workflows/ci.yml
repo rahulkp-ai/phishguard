@@ -161,63 +161,6 @@ jobs:
           fail_ci_if_error: false
           token: ${{ secrets.CODECOV_TOKEN }}
 
-  # # ---------------------------------------------------------------------------
-  # # Job 4 — Docker build verification
-  # # Builds the image and verifies its structure without running the app.
-  # # Running the full app in CI fails because preload_app=True in
-  # # gunicorn.conf.py tries to load the model at startup — the model is
-  # # gitignored and not present in the image. Structure checks are sufficient
-  # # to verify the Dockerfile is correct.
-  # # ---------------------------------------------------------------------------
-  # docker-check:
-  #   name: Docker Build Check
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 15
-  #   needs: [lint, test-fast]
-  #   if: github.event_name == 'push'
-
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v4
-
-  #     - name: Set up Docker Buildx
-  #       uses: docker/setup-buildx-action@v3
-
-  #     - name: Build Docker image (no push)
-  #       uses: docker/build-push-action@v5
-  #       with:
-  #         context: .
-  #         file: docker/Dockerfile
-  #         push: false
-  #         tags: phishguard:ci-check
-  #         load: true
-  #         cache-from: type=gha
-  #         cache-to: type=gha,mode=max
-
-  #     - name: Verify image structure
-  #       run: |
-  #         echo "=== Image built successfully ==="
-  #         docker image inspect phishguard:ci-check --format='Size: {{.Size}} bytes'
-
-  #         echo "=== Verify non-root user ==="
-  #         docker run --rm --entrypoint whoami phishguard:ci-check
-
-  #         echo "=== Verify package is importable ==="
-  #         docker run --rm \
-  #           -e SECRET_KEY=ci-testing-secret \
-  #           --entrypoint python3 \
-  #           phishguard:ci-check \
-  #           -c "from phishguard.features.extractor import FEATURE_NAMES, NUM_FEATURES; print(f'Features: {NUM_FEATURES}')"
-
-  #         echo "=== Verify gunicorn config is valid Python ==="
-  #         docker run --rm \
-  #           -e SECRET_KEY=ci-testing-secret \
-  #           --entrypoint python3 \
-  #           phishguard:ci-check \
-  #           -c "exec(open('docker/gunicorn.conf.py').read()); print(f'workers={workers} bind={bind}')"
-
-  #         echo "=== Docker Build Check passed ==="
-
   # ---------------------------------------------------------------------------
   # Summary job — single required status check for branch protection rules
   # ---------------------------------------------------------------------------
