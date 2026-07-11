@@ -1,3 +1,27 @@
+---
+title: PhishGuard
+emoji: 🛡️
+colorFrom: red
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
+# PhishGuard — Phishing URL Detection API
+
+ML-powered phishing URL detection using Random Forest + 28 hand-engineered features.
+
+## API
+
+**POST** `/api/predict`
+
+```json
+{ "url": "https://example.com" }
+```
+
+**GET** `/api/health`
+
 # PhishGuard 🛡️
 
 **ML-powered phishing URL detection — production-grade MLOps portfolio project**
