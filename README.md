@@ -1,28 +1,4 @@
----
-title: PhishGuard
-emoji: 🛡️
-colorFrom: red
-colorTo: blue
-sdk: docker
-app_port: 7860
-pinned: false
----
-
-# PhishGuard — Phishing URL Detection API
-
-ML-powered phishing URL detection using Random Forest + 28 hand-engineered features.
-
-## API
-
-**POST** `/api/predict`
-
-```json
-{ "url": "https://example.com" }
-```
-
-**GET** `/api/health`
-
-# PhishGuard 🛡️
+# PhishGuard
 
 **ML-powered phishing URL detection — production-grade MLOps portfolio project**
 
@@ -34,11 +10,37 @@ ML-powered phishing URL detection using Random Forest + 28 hand-engineered featu
 [![Flask](https://img.shields.io/badge/Flask-3.x-000000?style=flat-square&logo=flask)](https://flask.palletsprojects.com/)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white)](./docker/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-manifests-326CE5?style=flat-square&logo=kubernetes&logoColor=white)](./k8s/)
+[![Render](https://img.shields.io/badge/Render-Live-46E3B7?style=flat-square&logo=render&logoColor=white)](https://phishguard-xozj.onrender.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](./LICENSE)
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-rahulkp--ai-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/rahulkp-ai/)
 [![Kaggle](https://img.shields.io/badge/Kaggle-rahulkpai-20BEFF?style=flat-square&logo=kaggle&logoColor=white)](https://www.kaggle.com/rahulkpai)
 [![ORCID](https://img.shields.io/badge/ORCID-0009--0009--3403--6670-A6CE39?style=flat-square&logo=orcid&logoColor=white)](https://orcid.org/0009-0009-3403-6670)
+
+---
+
+## 🚀 Live Demo
+
+| Platform | URL | Status |
+|----------|-----|--------|
+| **Render** | [phishguard-xozj.onrender.com](https://phishguard-xozj.onrender.com) | ✅ Live |
+
+```bash
+# Try it right now
+curl -X POST https://phishguard-xozj.onrender.com/api/predict \
+  -H "Content-Type: application/json" \
+  -d '{"url": "http://paypal-verify-secure.account.tk/login"}'
+```
+
+```json
+{
+  "label": "PHISHING",
+  "risk_level": "HIGH",
+  "phishing_pct": 97.4,
+  "confidence": 97.4,
+  "analysis_time_ms": 6.2
+}
+```
 
 ---
 
@@ -52,13 +54,13 @@ PhishGuard is a **production-grade MLOps project** that detects phishing URLs in
 
 ## Model Performance
 
-| Metric               | Score |
-| -------------------- | ----- |
-| Accuracy             | ~95%  |
-| ROC-AUC              | ~0.98 |
-| Precision (Phishing) | ~94%  |
-| Recall (Phishing)    | ~96%  |
-| F1 (Phishing)        | ~95%  |
+| Metric | Score |
+|--------|-------|
+| Accuracy | ~95% |
+| ROC-AUC | ~0.98 |
+| Precision (Phishing) | ~94% |
+| Recall (Phishing) | ~96% |
+| F1 (Phishing) | ~95% |
 
 Trained on ~50,000 balanced URLs from OpenPhish, URLhaus, PhishTank, Majestic Million, and Tranco.
 
@@ -66,48 +68,66 @@ Trained on ~50,000 balanced URLs from OpenPhish, URLhaus, PhishTank, Majestic Mi
 
 ## Architecture
 
-```
-                        ┌─────────────────────────────────┐
-                        │         GitHub Actions CI        │
-                        │  lint → test → coverage → build  │
-                        └──────────────┬──────────────────┘
-                                       │ push to main
-                                       ▼
-┌──────────────┐    POST /api/predict  ┌─────────────────┐    joblib.load()   ┌──────────────┐
-│   Client /   │ ────────────────────► │   Flask API     │ ──────────────────► │ Random Forest│
-│   Web UI     │ ◄──────────────────── │  (gunicorn)     │ ◄────── predict()── │  Classifier  │
-└──────────────┘    JSON response      └────────┬────────┘                    └──────────────┘
-                                                │
-                    ┌───────────────────────────┼───────────────────────────┐
-                    │                           │                           │
-                    ▼                           ▼                           ▼
-           ┌──────────────┐          ┌─────────────────┐         ┌──────────────────┐
-           │  structlog   │          │   Prometheus     │         │  DriftDetector   │
-           │  JSON logs   │          │   /metrics       │         │  rolling window  │
-           │  + request ID│          │   scrape target  │         │  phishing rate   │
-           └──────────────┘          └────────┬────────┘         └──────────────────┘
-                                              │
-                                              ▼
-                                    ┌─────────────────┐
-                                    │     Grafana      │
-                                    │  9-panel dashboard│
-                                    │  + alert rules   │
-                                    └─────────────────┘
+```mermaid
+flowchart TB
+
+    %% ======================
+    %% CI/CD
+    %% ======================
+    subgraph DevOps["CI/CD Pipeline"]
+        GH["GitHub Repository"]
+        CI["GitHub Actions<br/>Lint • Test • Coverage • Build"]
+    end
+
+    %% ======================
+    %% Inference Layer
+    %% ======================
+    subgraph Inference["Inference Service"]
+        Client["Client / Web UI"]
+        API["Flask API<br/>(Gunicorn)"]
+        Model["Random Forest<br/>Model (.joblib)"]
+    end
+
+    %% ======================
+    %% Observability
+    %% ======================
+    subgraph Obs["Monitoring & Logging"]
+        Logs["structlog<br/>JSON Logging"]
+        Metrics["Prometheus"]
+        Drift["Drift Detector"]
+        Grafana["Grafana Dashboard"]
+    end
+
+    GH --> CI
+    CI -->|"Deploy"| API
+
+    Client -->|"POST /api/predict"| API
+    API -->|"JSON Response"| Client
+
+    API -->|"Load Model"| Model
+    Model -->|"Prediction"| API
+
+    API --> Logs
+    API --> Metrics
+    API --> Drift
+
+    Metrics --> Grafana
 ```
 
 ---
 
 ## Key Engineering Decisions
 
-| Decision            | Choice                              | Why                                              |
-| ------------------- | ----------------------------------- | ------------------------------------------------ |
-| Package layout      | `src/` layout                       | Prevents accidental imports from repo root       |
-| Model serialization | `joblib`                            | Safer and faster than `pickle` for sklearn       |
-| Logging             | `structlog` + stdlib bridge         | JSON in prod, coloured in dev, quiet in tests    |
-| Secret management   | Env vars + Secret Manager           | Never in code, never in `.env.example`           |
-| Container security  | Non-root uid=1001, read-only rootfs | Defence in depth                                 |
-| CI auth to GCP      | Workload Identity Federation        | No long-lived service account keys               |
-| Metric cardinality  | Blueprint-prefixed endpoint names   | Prevents label explosion from variable URL paths |
+| Decision | Choice | Why |
+|----------|--------|-----|
+| Package layout | `src/` layout | Prevents accidental imports from repo root |
+| Model serialization | `joblib` | Safer and faster than `pickle` for sklearn |
+| Logging | `structlog` + stdlib bridge | JSON in prod, coloured in dev, quiet in tests |
+| Secret management | Env vars + Secret Manager | Never in code, never in `.env.example` |
+| Container security | Non-root uid=1001, read-only rootfs | Defence in depth |
+| CI auth to GCP | Workload Identity Federation | No long-lived service account keys |
+| Metric cardinality | Blueprint-prefixed endpoint names | Prevents label explosion from variable URL paths |
+| Model delivery | Baked into image at build time | Works on stateless free-tier containers |
 
 ---
 
@@ -123,7 +143,7 @@ Trained on ~50,000 balanced URLs from OpenPhish, URLhaus, PhishTank, Majestic Mi
 
 **Observability:** Prometheus · Grafana · prediction drift detection
 
-**Cloud:** GCP Cloud Run · Render · Artifact Registry · Secret Manager
+**Cloud:** Render (live) · GCP Cloud Run · Artifact Registry · Secret Manager
 
 ---
 
@@ -192,13 +212,13 @@ pip install -e ".[dev]"
 python scripts/train_pipeline.py
 ```
 
-This downloads phishing and legitimate URL feeds, extracts 28 features per URL, and trains the Random Forest. Takes ~8–12 minutes on the first run. Use `--cap 5000` to limit dataset size for a quick test:
+Takes ~8–12 minutes on first run. Use `--cap 5000` for a quick test:
 
 ```bash
 python scripts/train_pipeline.py --cap 5000
 ```
 
-If you already have URL files in `data/processed/`:
+Already have URL data? Skip the download:
 
 ```bash
 python scripts/train_pipeline.py --skip-download
@@ -207,14 +227,11 @@ python scripts/train_pipeline.py --skip-download
 ### 3. Run
 
 ```bash
-# Set a secret key (required)
 export SECRET_KEY=$(python scripts/generate_secret_key.py)
-
-# Start the dev server
 python run.py
 ```
 
-Open `http://localhost:5000` in your browser.
+Open `http://localhost:5000`
 
 ### 4. Test a prediction
 
@@ -222,19 +239,6 @@ Open `http://localhost:5000` in your browser.
 curl -X POST http://localhost:5000/api/predict \
   -H "Content-Type: application/json" \
   -d '{"url": "http://paypal-verify-secure.account.tk/login"}'
-```
-
-```json
-{
-  "url": "http://paypal-verify-secure.account.tk/login",
-  "is_phishing": true,
-  "label": "PHISHING",
-  "phishing_pct": 97.4,
-  "legit_pct": 2.6,
-  "confidence": 97.4,
-  "risk_level": "HIGH",
-  "analysis_time_ms": 6.2
-}
 ```
 
 ---
@@ -251,23 +255,24 @@ curl -X POST http://localhost:5000/api/predict \
 }
 ```
 
-Returns `"degraded"` if the model isn't loaded — pod stays in the load balancer but predictions return 503.
-
 ### `POST /api/predict`
 
+**Request:**
 ```json
 { "url": "https://example.com" }
 ```
 
-| Field              | Type   | Description                                  |
-| ------------------ | ------ | -------------------------------------------- |
-| `is_phishing`      | bool   | Model classification                         |
-| `label`            | string | `"PHISHING"` or `"LEGITIMATE"`               |
-| `phishing_pct`     | float  | Phishing probability 0–100                   |
-| `confidence`       | float  | Max class probability 0–100                  |
-| `risk_level`       | string | `HIGH` / `MEDIUM` / `LOW` / `SAFE`           |
-| `features`         | object | 10 key feature values used in classification |
-| `analysis_time_ms` | float  | End-to-end latency in milliseconds           |
+**Response:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `is_phishing` | bool | Model classification |
+| `label` | string | `"PHISHING"` or `"LEGITIMATE"` |
+| `phishing_pct` | float | Phishing probability 0–100 |
+| `confidence` | float | Max class probability 0–100 |
+| `risk_level` | string | `HIGH` / `MEDIUM` / `LOW` / `SAFE` |
+| `features` | object | 10 key feature values used in classification |
+| `analysis_time_ms` | float | End-to-end latency in milliseconds |
 
 ### `POST /api/batch`
 
@@ -275,27 +280,27 @@ Returns `"degraded"` if the model isn't loaded — pod stays in the load balance
 { "urls": ["https://google.com", "http://evil.tk/login"] }
 ```
 
-Up to 50 URLs per request. Each URL is analysed independently — one invalid URL doesn't fail the batch.
+Up to 50 URLs per request. One invalid URL never fails the whole batch.
 
 ### `GET /metrics`
 
 Prometheus text exposition format. Key metrics:
 
-| Metric                                     | Type      | Description                 |
-| ------------------------------------------ | --------- | --------------------------- |
-| `phishguard_http_requests_total`           | Counter   | By method, endpoint, status |
-| `phishguard_http_request_duration_seconds` | Histogram | p50/p95/p99 latency         |
-| `phishguard_predictions_total`             | Counter   | By label, risk level        |
-| `phishguard_prediction_confidence`         | Histogram | Confidence distribution     |
-| `phishguard_phishing_rate_1m`              | Gauge     | Rolling phishing rate       |
-| `phishguard_drift_detected`                | Gauge     | 1 when drift is active      |
+| Metric | Type | Description |
+|--------|------|-------------|
+| `phishguard_http_requests_total` | Counter | By method, endpoint, status |
+| `phishguard_http_request_duration_seconds` | Histogram | p50/p95/p99 latency |
+| `phishguard_predictions_total` | Counter | By label, risk level |
+| `phishguard_prediction_confidence` | Histogram | Confidence distribution |
+| `phishguard_phishing_rate_1m` | Gauge | Rolling phishing rate |
+| `phishguard_drift_detected` | Gauge | 1 when drift is active |
 
 ---
 
 ## Running Tests
 
 ```bash
-# Fast feedback (unit tests only, ~0.7s)
+# Fast feedback — unit tests only (~0.7s)
 pytest tests/ --fast
 
 # Full suite including integration tests (~11s)
@@ -333,7 +338,7 @@ Grafana dashboard auto-provisions at `http://localhost:3000` (admin/admin).
 ## Kubernetes
 
 ```bash
-# Replace the image placeholder
+# Replace placeholder with your GitHub username
 find k8s/ -name "*.yaml" -exec sed -i 's/YOUR_GITHUB_USERNAME/rahulkp-ai/g' {} +
 
 # Deploy to local minikube
@@ -349,40 +354,39 @@ bash k8s/scripts/create-secrets.sh
 kubectl port-forward svc/phishguard 5000:80 -n phishguard
 ```
 
-Three overlays available: `dev` (1 replica, minikube), `staging` (2 replicas, Let's Encrypt staging TLS), `production` (3 replicas, HA, prod TLS, RWX storage).
+Three overlays: `dev` (1 replica, minikube) · `staging` (2 replicas, Let's Encrypt staging TLS) · `production` (3 replicas, HA, prod TLS, RWX storage).
 
 ---
 
-## Cloud Deployment (Free Tier)
+## Cloud Deployment
 
 See [`deploy/DEPLOYMENT_GUIDE.md`](./deploy/DEPLOYMENT_GUIDE.md) for full step-by-step instructions.
 
-| Platform          | Cost     | Setup time | Notes                                                                                     |
-| ----------------- | -------- | ---------- | ----------------------------------------------------------------------------------------- |
-| **Render**        | $0/month | ~5 min     | No card. Spins down after 15 min idle. Keep-alive workflow included.                      |
-| **GCP Cloud Run** | $0/month | ~20 min    | Card required (not charged at portfolio scale). 2M requests/month free. us-central1 only. |
+| Platform | URL | Cost | Notes |
+|----------|-----|------|-------|
+| **Render** | [phishguard-xozj.onrender.com](https://phishguard-xozj.onrender.com) | $0/month | Live ✅ · Keep-alive pinger included |
+| **GCP Cloud Run** | — | $0/month | 2M requests/month free · us-central1 |
 
-The model is baked into the Docker image at build time, working around free-tier stateless container limits.
+The model is baked into the Docker image at build time — no persistent volumes needed on free-tier stateless containers.
 
 ---
 
 ## CI/CD Pipelines
 
-| Workflow                | Trigger                 | What it does                                                                          |
-| ----------------------- | ----------------------- | ------------------------------------------------------------------------------------- |
-| `ci.yml`                | Push / PR to main       | Lint → unit tests (py3.10 + py3.12) → full tests + coverage gate → Docker build check |
-| `docker-publish.yml`    | Push to main, `v*` tags | Build + push to GHCR, cosign image signing, SBOM                                      |
-| `codeql.yml`            | Push + weekly           | Security-extended static analysis                                                     |
-| `dependency-review.yml` | PRs to main             | Block HIGH/CRITICAL CVEs before merge                                                 |
-| `release.yml`           | `v*` tags               | Build wheel, auto-generate changelog, create GitHub Release                           |
-| `deploy-gcp.yml`        | Push to main            | Build → push to Artifact Registry → deploy to Cloud Run                               |
-| `keep-alive.yml`        | Every 14 min            | Ping Render to prevent free-tier spin-down                                            |
+| Workflow | Trigger | What it does |
+|----------|---------|--------------|
+| `ci.yml` | Push / PR to main | Lint → unit tests (py3.10 + py3.12) → full tests + coverage gate |
+| `docker-publish.yml` | Push to main, `v*` tags | Build + push to GHCR, cosign signing, SBOM |
+| `codeql.yml` | Push + weekly | Security-extended static analysis |
+| `dependency-review.yml` | PRs to main | Block HIGH/CRITICAL CVEs before merge |
+| `release.yml` | `v*` tags | Build wheel, auto-generate changelog, GitHub Release |
+| `keep-alive.yml` | Every 14 min | Ping Render to prevent free-tier spin-down |
 
 ---
 
 ## The 28 URL Features
 
-The classifier uses 28 hand-engineered features extracted directly from the URL string — no external DNS lookups, no WHOIS queries:
+Extracted directly from the URL string — no DNS lookups, no WHOIS queries, sub-millisecond per URL:
 
 `has_ip` · `url_length` · `has_shortener` · `has_at_symbol` · `double_slash_redirect` · `hyphen_in_domain` · `subdomain_depth` · `https_in_domain_text` · `digit_ratio` · `special_char_count` · `slash_count` · `dot_count` · `suspicious_keywords` · `domain_length` · `has_exe_extension` · `hyphen_count` · `encoded_chars` · `path_depth` · `query_length` · `domain_entropy` · `suspicious_tld` · `brand_in_subdomain` · `non_standard_port` · `digit_in_domain` · `url_entropy` · `repeated_chars` · `dangerous_extension` · `subdomain_count`
 
@@ -392,13 +396,13 @@ A known-legitimate domain allowlist (Google, GitHub, ChatGPT, Coursera, etc.) su
 
 ## Environment Variables
 
-| Variable          | Required   | Default                        | Description                                                                  |
-| ----------------- | ---------- | ------------------------------ | ---------------------------------------------------------------------------- |
-| `SECRET_KEY`      | Yes (prod) | dev fallback                   | Flask session signing key. Generate: `python scripts/generate_secret_key.py` |
-| `MODEL_PATH`      | No         | `models/phishing_model.joblib` | Absolute path to trained model                                               |
-| `PORT`            | No         | `5000`                         | Server port                                                                  |
-| `WEB_CONCURRENCY` | No         | `(2×CPU)+1`                    | Gunicorn worker count                                                        |
-| `LOG_LEVEL`       | No         | `info`                         | `debug` / `info` / `warning` / `error`                                       |
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `SECRET_KEY` | Yes (prod) | dev fallback | Flask session signing key. Generate: `python scripts/generate_secret_key.py` |
+| `MODEL_PATH` | No | `models/phishing_model.joblib` | Absolute path to trained model |
+| `PORT` | No | `5000` | Server port |
+| `WEB_CONCURRENCY` | No | `(2×CPU)+1` | Gunicorn worker count |
+| `LOG_LEVEL` | No | `info` | `debug` / `info` / `warning` / `error` |
 
 Copy `.env.example` to `.env` and fill in real values. Never commit `.env`.
 
@@ -409,7 +413,6 @@ Copy `.env.example` to `.env` and fill in real values. Never commit `.env`.
 See [`.github/pull_request_template.md`](./.github/pull_request_template.md) for the PR checklist.
 
 ```bash
-# Before opening a PR
 make check        # lint + format check
 make test         # full suite
 make test-fast    # quick feedback during development
