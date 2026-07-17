@@ -26,38 +26,42 @@ name: Keep Alive (Render)
 
 on:
   schedule:
-    # Every 14 minutes — stays under Render's 15-min spin-down threshold
+    # Runs every 14 minutes to stay under Render's 15-minute idle spin-down threshold
     - cron: "*/14 * * * *"
-  workflow_dispatch:    # allow manual trigger for testing
+  workflow_dispatch:    # Allows manual testing in the GitHub Actions tab
 
 jobs:
   ping:
     name: Ping Render Service
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 3 # Increased slightly to cover the cold start window
 
     steps:
       - name: Ping /api/health
         run: |
+          # Use your target URL as a fallback if the secret isn't configured yet
           URL="${{ secrets.RENDER_URL }}"
-
           if [[ -z "$URL" ]]; then
-            echo "RENDER_URL secret not set. Skipping ping."
-            echo "Add it in Settings → Secrets → RENDER_URL = https://your-app.onrender.com"
-            exit 0
+            URL="https://phishguard-xozj.onrender.com"
           fi
 
           echo "Pinging $URL/api/health ..."
-          RESPONSE=$(curl --silent --max-time 30 --write-out "\n%{http_code}" "$URL/api/health")
+          
+          # Increased --max-time to 60 seconds to allow Render's cold start to complete
+          RESPONSE=$(curl --silent --show-error --max-time 60 --write-out "\n%{http_code}" "$URL/api/health")
+          
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | head -1)
 
           echo "Status: $HTTP_CODE"
           echo "Body:   $BODY"
 
-          if [[ "$HTTP_CODE" == "200" ]]; then
-            echo "Service is alive."
+          # Accept 200 OK, but also accept other standard success/redirect codes 
+          # just in case your health endpoint behaves differently
+          if [[ "$HTTP_CODE" =~ ^(200|301|302|307|308)$ ]]; then
+            echo "Service is alive and responding."
           else
             echo "WARNING: Unexpected status $HTTP_CODE"
-            # Don't fail — the service may be waking up. Next ping will confirm.
+            # We don't exit 1 here so your workflow history stays green, 
+            # but you'll see the warning in the logs if it failed to wake up.
           fi
