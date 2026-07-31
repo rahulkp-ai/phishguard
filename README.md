@@ -19,11 +19,11 @@
 
 ---
 
-## 🚀 Live Demo
+## Live Demo
 
 | Platform | URL | Status |
 |----------|-----|--------|
-| **Render** | [phishguard-xozj.onrender.com](https://phishguard-xozj.onrender.com) | ✅ Live |
+| **Render** | [phishguard-xozj.onrender.com](https://phishguard-xozj.onrender.com) |  Live |
 
 ```bash
 # Try it right now
